@@ -1,4 +1,4 @@
-import { Box, Button, Image, Loader, ThemeIcon, Tooltip } from "@mantine/core";
+import { Box, Button, Image, Loader, ThemeIcon, Tooltip, Badge } from "@mantine/core";
 import classes from "./CodeContainer.module.css";
 import { Highlight, themes } from "prism-react-renderer";
 import {
@@ -25,6 +25,8 @@ type CodeContainerProps = {
   line_to: number;
   name: string;
   signature: string;
+  match_type?: string;
+  similarity?: number;
   sub_matches?: {
     overlap_from: number;
     overlap_to: number;
@@ -33,7 +35,7 @@ type CodeContainerProps = {
 const loadCount = 10;
 
 export function CodeContainer(props: CodeContainerProps) {
-  const { context, line_from, sub_matches, line_to } = props;
+  const { context, line_from, sub_matches, line_to, match_type } = props;
   const [codeLineFrom, setCodeLineFrom] = useMountedState(line_from);
   const [codeLineTo, setCodeLineTo] = useMountedState(line_to);
   const [code, setCode] = useMountedState(props.context.snippet);
@@ -120,6 +122,15 @@ export function CodeContainer(props: CodeContainerProps) {
         >
           {context.file_path}
         </Button>
+        {match_type && (
+          <Badge 
+            color={match_type === "text" ? "blue" : "green"} 
+            variant="light"
+            style={{ marginLeft: '10px' }}
+          >
+            {match_type === "text" ? "Text Match" : "Semantic Match"}
+          </Badge>
+        )}
       </Box>
 
       <Highlight

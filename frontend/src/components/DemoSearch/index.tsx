@@ -38,6 +38,31 @@ export default function DemoSearch({ handleDemoSearch }: DemoSearchProps) {
       >
         flush WAL
       </Button>
+      <Text className={classes.demoText} style={{marginTop: '15px'}}>Hybrid Search:</Text>
+      <Button
+        variant="outline"
+        leftSection={<IconPointerSearch  size={"1.3rem"}/>}
+        className={classes.demoBtn}
+        onClick={() => handleDemoSearch("advanced_range_slider")}
+      >
+        advanced_range_slider
+      </Button>
+      <Button
+        variant="outline"
+        leftSection={<IconPointerSearch  size={"1.3rem"}/>}
+        className={classes.demoBtn}
+        onClick={() => handleDemoSearch("function initState")}
+      >
+        function initState
+      </Button>
+      <Button
+        variant="outline"
+        leftSection={<IconPointerSearch  size={"1.3rem"}/>}
+        className={classes.demoBtn}
+        onClick={() => handleDemoSearch("core/external_libs")}
+      >
+        core/external_libs
+      </Button>
     </Box>
   );
 }

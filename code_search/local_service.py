@@ -5,7 +5,7 @@ from starlette.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from code_search.config import ROOT_DIR
-from code_search.local_searcher import CombinedSearcher
+from code_search.hybrid_searcher import CombinedSearcher
 from code_search.local_file_get import FileGet
 
 app = FastAPI()

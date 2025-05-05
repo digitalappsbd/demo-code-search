@@ -18,6 +18,8 @@ export type searchResponse = {
     line_to: number;
     name: string;
     signature: string;
+    similarity: number;
+    match_type?: string;
     sub_matches: {
       overlap_from: number;
       overlap_to: number;
