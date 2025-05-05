@@ -12,6 +12,8 @@
 .linksInner {
   padding: var(--mantine-spacing-md);
   padding-bottom:0 ;
+  max-height: 90vh;
+  overflow: scroll;
 }
 
 @media (max-width: 48em) {

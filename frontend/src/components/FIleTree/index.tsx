@@ -90,7 +90,7 @@ export function FileTree({ data }: { data: searchResponse | null }) {
   ));
   return (
     <nav className={classes.navbar}>
-      <Box className={classes.links}>
+      <Box className={classes.links} style={{ maxHeight: "90vh", overflow: "scroll" }}>
         <div className={classes.linksInner}>{links}</div>
       </Box>
     </nav>
