@@ -12,7 +12,7 @@ EMBEDDINGS_FILE = os.path.join(DATA_DIR, "embeddings.json")
 STRUCTURES_FILE = os.path.join(DATA_DIR, "structures.json")
 
 # Vector size for encoding
-VECTOR_SIZE = 1024  # BGE-large-en produces 1024-dimension vectors
+VECTOR_SIZE = 768
 
 def simple_encode(text, size=VECTOR_SIZE):
     """Create a simple vector encoding from text using hashing."""
@@ -58,31 +58,6 @@ def load_embeddings():
             return json.load(f)
     return {}
 
-def encode_query(query: str) -> List[float]:
-    """
-    Encode a query string using the BGE model if available, otherwise fallback to simple encoding.
-    
-    Args:
-        query: The search query string
-    
-    Returns:
-        A list of floats representing the query embedding
-    """
-    try:
-        from sentence_transformers import SentenceTransformer
-        
-        # The instruction enhances BGE model performance
-        instruction = "Represent this sentence for searching relevant passages: "
-        full_query = instruction + query
-        
-        model = SentenceTransformer('BAAI/bge-large-en')
-        embedding = model.encode(full_query, normalize_embeddings=True)
-        return embedding.tolist()
-    except (ImportError, Exception) as e:
-        print(f"Warning: Failed to use SentenceTransformer to encode query: {str(e)}")
-        print("Falling back to simple encoding method")
-        return simple_encode(query)
-
 def search(query: str, limit: int = 100) -> List[Dict[str, Any]]:
     """Search for code structures matching the query."""
     # Load structures and embeddings
@@ -92,8 +67,8 @@ def search(query: str, limit: int = 100) -> List[Dict[str, Any]]:
     if not structures or not embeddings:
         return []
     
-    # Create query vector using appropriate method
-    query_vector = encode_query(query)
+    # Create query vector
+    query_vector = simple_encode(query)
     
     # Calculate similarity scores
     results = []
@@ -101,7 +76,7 @@ def search(query: str, limit: int = 100) -> List[Dict[str, Any]]:
         structure_id = str(idx)
         if structure_id in embeddings:
             similarity = cosine_similarity(query_vector, embeddings[structure_id])
-            if similarity < 0.4:
+            if similarity > 0.0 and similarity < 0.5:
                 results.append((similarity, structure))
     
     # Sort by similarity (descending)

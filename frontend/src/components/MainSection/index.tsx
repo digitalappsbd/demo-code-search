@@ -105,17 +105,35 @@ export default function Main() {
     
     // Extract unique file paths
     const filePaths = [...new Set(data.result.map(item => item.context.file_path))];
+    console.log("File paths for merge:", filePaths);
     
     try {
       const response = await mergeCodes({ file_paths: filePaths });
+      console.log("Merge response:", response);
       if (response.data?.result) {
+        console.log("Merged content length:", response.data.result.length);
+        console.log("Content preview:", response.data.result.substring(0, 100) + "...");
+        
         const success = await copyToClipboard(response.data.result);
+        console.log("Clipboard copy result:", success);
         if (success) {
           setClipboardNotification({
             visible: true,
             message: "Success! Merged code copied to clipboard",
           });
+        } else {
+          console.error("Failed to copy to clipboard");
+          setClipboardNotification({
+            visible: true,
+            message: "Failed to copy to clipboard",
+          });
         }
+      } else {
+        console.error("No result data in response");
+        setClipboardNotification({
+          visible: true,
+          message: "Failed to merge code: Empty response",
+        });
       }
     } catch (error) {
       console.error("Error merging code:", error);

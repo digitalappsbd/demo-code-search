@@ -1,5 +1,5 @@
 import { Axios } from "./axios";
-import { SEARCH_URL } from "./constants";
+import { SEARCH_URL, MERGE_CODES_URL } from "./constants";
 
 
 export type SearchRequest = {
@@ -18,5 +18,5 @@ export const getSearchResult = (searchRequest:SearchRequest) => {
 };
 
 export const mergeCodes = (mergeRequest: MergeRequest) => {
-    return Axios().post("/api/merge-codes", mergeRequest);
+    return Axios().post(MERGE_CODES_URL, mergeRequest);
 };
