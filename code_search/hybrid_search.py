@@ -26,7 +26,12 @@ def hybrid_search(query: str, limit: int = 100) -> List[Dict[str, Any]]:
     # Add semantic search results to the dictionary
     for item in semantic_results:
         structure_id = str(item["payload"].get("file_path", "") + item["payload"].get("name", ""))
-        results_dict[structure_id] = item
+        # Slightly reduce semantic search scores to prioritize exact keyword matches
+        results_dict[structure_id] = {
+            "similarity": float(item["similarity"]) * 0.9,  # Reduce semantic scores to prioritize keyword matches
+            "payload": item["payload"],
+            "match_type": "semantic"
+        }
     
     # Perform text-based search
     if len(structures) > 0:
@@ -37,10 +42,6 @@ def hybrid_search(query: str, limit: int = 100) -> List[Dict[str, Any]]:
         for idx, structure in enumerate(structures):
             structure_id = str(structure.get("file_path", "") + structure.get("name", ""))
             
-            # Skip if already added by semantic search
-            if structure_id in results_dict:
-                continue
-            
             # Get relevant fields for matching
             file_path = structure.get("file_path", "").lower()
             file_name = structure.get("file_name", "").lower()
@@ -48,44 +49,85 @@ def hybrid_search(query: str, limit: int = 100) -> List[Dict[str, Any]]:
             
             # Calculate match score based on exact and partial matches in fields
             score = 0.0
+            matched_field = ""
             
             # Check for exact matches (highest priority)
             if normalized_query == file_name:
-                score = 0.95  # High score for exact filename match
+                score = 0.99  # Highest score for exact filename match
+                matched_field = "file_name"
+            elif file_name and normalized_query in file_name:
+                # Partial but strong match in filename
+                score = 0.97
+                matched_field = "file_name"
             elif normalized_query == function_name:
-                score = 0.9   # High score for exact function name match
+                score = 0.95  # High score for exact function name match
+                matched_field = "function_name"
             elif file_path.endswith("/" + normalized_query):
-                score = 0.85  # High score for path ending with exact query
+                score = 0.93  # High score for path ending with exact query
+                matched_field = "file_path"
                 
             # Check for partial matches if no exact match found
             if score == 0.0:
-                # Check if all query terms are present in any of the fields
-                all_terms_present = all(term in file_path or term in file_name or term in function_name for term in query_terms)
+                # Calculate individual field scores
+                filename_score = _calculate_match_score(file_name, normalized_query, query_terms)
+                function_score = _calculate_match_score(function_name, normalized_query, query_terms)
+                path_score = _calculate_match_score(file_path, normalized_query, query_terms)
                 
-                if all_terms_present:
-                    # Calculate a score based on field relevance and match positions
-                    filename_score = _calculate_match_score(file_name, normalized_query, query_terms)
-                    function_score = _calculate_match_score(function_name, normalized_query, query_terms)
-                    path_score = _calculate_match_score(file_path, normalized_query, query_terms)
-                    
-                    # Weight the scores, emphasizing filename and function name matches
-                    score = max(
-                        filename_score * 0.9,      # Filename is important
-                        function_score * 0.85,     # Function name is important
-                        path_score * 0.7           # Path is less important
-                    )
+                # Weight the scores, heavily prioritizing filename matches
+                if filename_score > 0:
+                    score = filename_score * 0.95  # Filename is highest priority
+                    matched_field = "file_name"
+                elif function_score > 0:
+                    score = function_score * 0.85  # Function name is high priority
+                    matched_field = "function_name"
+                elif path_score > 0:
+                    score = path_score * 0.8   # Path is medium priority
+                    matched_field = "file_path"
             
             # Only include matches with a minimum score
-            if score > 0.4:
-                results_dict[structure_id] = {
-                    "similarity": float(score),
-                    "payload": structure,
-                    "match_type": "text"  # Add this to indicate it was a text match
-                }
+            if score > 0.3:
+                # If this entry already exists from semantic search but our keyword match is better, update it
+                if structure_id in results_dict and results_dict[structure_id]["similarity"] < score:
+                    results_dict[structure_id] = {
+                        "similarity": float(score),
+                        "payload": structure,
+                        "match_type": "text",
+                        "matched_field": matched_field
+                    }
+                # If this entry doesn't exist in results yet, add it
+                elif structure_id not in results_dict:
+                    results_dict[structure_id] = {
+                        "similarity": float(score),
+                        "payload": structure,
+                        "match_type": "text",
+                        "matched_field": matched_field
+                    }
     
     # Convert dictionary to list and sort by similarity score
     results = list(results_dict.values())
-    results.sort(reverse=True, key=lambda x: x["similarity"])
+    
+    # Custom sort: first by match_type (text before semantic), then by matched_field, then by similarity
+    def custom_sort_key(item):
+        # First tier: text matches before semantic matches
+        match_type_value = 0 if item.get("match_type") == "text" else 1
+        
+        # Second tier: prioritize by matched field type
+        matched_field = item.get("matched_field", "")
+        field_priority = {
+            "file_name": 0,      # Highest priority
+            "function_name": 1,  # Second priority
+            "file_path": 2,      # Third priority
+            "": 3                # Lowest priority (for semantic matches)
+        }
+        field_value = field_priority.get(matched_field, 3)
+        
+        # Third tier: sort by similarity score
+        similarity = -item.get("similarity", 0)  # Negative for descending order
+        
+        return (match_type_value, field_value, similarity)
+    
+    # Sort results using our custom sort key
+    results.sort(key=custom_sort_key)
     
     # Return top matches
     return results[:limit]
@@ -109,18 +151,19 @@ def _calculate_match_score(text: str, query: str, query_terms: List[str]) -> flo
     if query in text:
         # Score higher for exact match at beginning or as a whole word
         if text.startswith(query):
-            return 0.85
+            return 0.9
         
         # Check if the query is a whole word within the text
         query_pattern = r"\b{}\b".format(re.escape(query))
         if re.search(query_pattern, text):
-            return 0.75
+            return 0.8
         
         # It's in the string but not a whole word
-        return 0.65
+        return 0.7
     
     # Calculate score based on how many terms match and their positions
     matches = 0
+    total_terms = len(query_terms)
     for term in query_terms:
         if term in text:
             matches += 1
@@ -128,5 +171,8 @@ def _calculate_match_score(text: str, query: str, query_terms: List[str]) -> flo
             if text.startswith(term):
                 matches += 0.5
     
-    # Return a score proportional to how many terms matched
-    return 0.5 * matches / max(len(query_terms), 1) 
+    # Only return a score if a significant portion of terms match
+    match_ratio = matches / max(total_terms, 1)
+    if match_ratio >= 0.5:  # At least half the terms must match
+        return 0.5 * match_ratio
+    return 0.0 

@@ -20,6 +20,7 @@ export type searchResponse = {
     signature: string;
     similarity: number;
     match_type?: string;
+    matched_field?: string;
     sub_matches: {
       overlap_from: number;
       overlap_to: number;

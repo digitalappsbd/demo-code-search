@@ -1,4 +1,4 @@
-import { Box, Button, Image, Loader, ThemeIcon, Tooltip, Badge } from "@mantine/core";
+import { Box, Button, Image, Loader, ThemeIcon, Tooltip, Badge, Group } from "@mantine/core";
 import classes from "./CodeContainer.module.css";
 import { Highlight, themes } from "prism-react-renderer";
 import {
@@ -26,6 +26,7 @@ type CodeContainerProps = {
   name: string;
   signature: string;
   match_type?: string;
+  matched_field?: string;
   similarity?: number;
   sub_matches?: {
     overlap_from: number;
@@ -35,7 +36,7 @@ type CodeContainerProps = {
 const loadCount = 10;
 
 export function CodeContainer(props: CodeContainerProps) {
-  const { context, line_from, sub_matches, line_to, match_type } = props;
+  const { context, line_from, sub_matches, line_to, match_type, matched_field } = props;
   const [codeLineFrom, setCodeLineFrom] = useMountedState(line_from);
   const [codeLineTo, setCodeLineTo] = useMountedState(line_to);
   const [code, setCode] = useMountedState(props.context.snippet);
@@ -92,6 +93,20 @@ export function CodeContainer(props: CodeContainerProps) {
     }
   }, [data]);
 
+  // Function to get a more user-friendly display name for matched field
+  const getMatchedFieldDisplayName = (field: string) => {
+    switch (field) {
+      case "file_name":
+        return "Filename";
+      case "function_name":
+        return "Function";
+      case "file_path":
+        return "Path";
+      default:
+        return "";
+    }
+  };
+
   return (
     <Box
       className={classes.wrapper}
@@ -122,15 +137,24 @@ export function CodeContainer(props: CodeContainerProps) {
         >
           {context.file_path}
         </Button>
-        {match_type && (
-          <Badge 
-            color={match_type === "text" ? "blue" : "green"} 
-            variant="light"
-            style={{ marginLeft: '10px' }}
-          >
-            {match_type === "text" ? "Text Match" : "Semantic Match"}
-          </Badge>
-        )}
+        <Group gap="xs">
+          {match_type && (
+            <Badge 
+              color={match_type === "text" ? "blue" : "green"} 
+              variant="light"
+            >
+              {match_type === "text" ? "Text Match" : "Semantic Match"}
+            </Badge>
+          )}
+          {match_type === "text" && matched_field && (
+            <Badge 
+              color="cyan" 
+              variant="outline"
+            >
+              {getMatchedFieldDisplayName(matched_field)}
+            </Badge>
+          )}
+        </Group>
       </Box>
 
       <Highlight

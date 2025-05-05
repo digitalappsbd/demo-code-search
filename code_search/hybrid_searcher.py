@@ -26,6 +26,7 @@ class HybridSearcher:
         for item in results:
             structure = item["payload"]
             match_type = item.get("match_type", "semantic")
+            matched_field = item.get("matched_field", "")
             
             # Format as expected by frontend
             formatted_result = {
@@ -41,6 +42,7 @@ class HybridSearcher:
                 "line_to": structure.get("line_to", 0),
                 "similarity": item.get("similarity", 0.0),
                 "match_type": match_type,
+                "matched_field": matched_field,
                 # Add a context section as expected by frontend
                 "context": {
                     "module": structure.get("module", ""),
