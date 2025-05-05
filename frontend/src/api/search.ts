@@ -6,9 +6,17 @@ export type SearchRequest = {
     query: string;
 }
 
+export type MergeRequest = {
+    file_paths: string[];
+}
+
 export const getSearchResult = (searchRequest:SearchRequest) => {
     const params = {
         query: searchRequest.query,
     }
     return Axios().get(SEARCH_URL, { params });
+};
+
+export const mergeCodes = (mergeRequest: MergeRequest) => {
+    return Axios().post("/api/merge-codes", mergeRequest);
 };
