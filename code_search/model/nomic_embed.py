@@ -7,6 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 from huggingface_hub import login
 from dotenv import load_dotenv
+import gc
 
 class NomicEmbeddingsProvider:
     def __init__(self, device: Optional[str] = None):
@@ -23,10 +24,16 @@ class NomicEmbeddingsProvider:
             print("You may need to authenticate to access the Nomic Embed Code model.")
             print("Visit https://huggingface.co/nomic-ai/nomic-embed-code to accept terms.")
         
-        default_device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.device = torch.device(default_device if device is None else device)
-        self.model = SentenceTransformer("nomic-ai/nomic-embed-code")
-        self.model.to(self.device)
+        # Force CPU usage regardless of what's available to avoid MPS/CUDA memory issues
+        print("Using CPU device for better memory management")
+        self.device = torch.device("cpu")
+        
+        # Set environment variables for memory management
+        os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
+        
+        # Load model with explicit CPU device
+        print("Loading model on CPU...")
+        self.model = SentenceTransformer("nomic-ai/nomic-embed-code", device="cpu")
         self.model_name = "nomic-ai/nomic-embed-code"
 
     def embed_code(
@@ -37,14 +44,25 @@ class NomicEmbeddingsProvider:
         For queries, use the prompt_name="query" parameter.
         """
         text = f"{docstring or ''} {code or ''}"
-        vector = self.model.encode(text)
+        
+        # Use smaller batch size for embedding to reduce memory usage
+        vector = self.model.encode(text, batch_size=1, show_progress_bar=False)
+        
+        # Force garbage collection
+        gc.collect()
+        
         return vector.tolist()
     
     def embed_query(self, query: str) -> List[float]:
         """
         Generate embedding for a search query.
         """
-        vector = self.model.encode(query, prompt_name="query")
+        # Use smaller batch size for embedding to reduce memory usage
+        vector = self.model.encode(query, prompt_name="query", batch_size=1, show_progress_bar=False)
+        
+        # Force garbage collection
+        gc.collect()
+        
         return vector.tolist()
 
 def generate_embeddings_file(structures_file: str, output_file: str):
@@ -65,24 +83,55 @@ def generate_embeddings_file(structures_file: str, output_file: str):
     # Dictionary to store the embeddings
     embeddings = {}
     
-    # Generate embeddings for each structure
-    for file_path, file_info in tqdm(structures.items(), desc="Generating embeddings"):
-        file_embeddings = {}
+    # Check if structures is a list or dictionary and process accordingly
+    if isinstance(structures, list):
+        # Process list format
+        print(f"Processing {len(structures)} code structures (list format)...")
         
-        # Generate embeddings for each function in the file
-        for func_info in file_info["functions"]:
-            func_id = func_info["id"]
-            code = func_info["code"]
-            docstring = func_info.get("docstring", "")
+        for structure in tqdm(structures, desc="Generating embeddings"):
+            file_path = structure["file_path"]
+            struct_id = f"{file_path}_{structure['line_from']}_{structure['line_to']}"
+            
+            # Get code and docstring
+            code = structure.get("snippet", "")
+            docstring = structure.get("docstring", "")
             
             # Generate embedding
             embedding = provider.embed_code(code=code, docstring=docstring)
             
-            # Store the embedding
-            file_embeddings[func_id] = embedding
+            # Store the embedding by file path
+            if file_path not in embeddings:
+                embeddings[file_path] = {}
+            
+            embeddings[file_path][struct_id] = embedding
+            
+            # Force garbage collection after each embedding to free memory
+            gc.collect()
+    else:
+        # Process dictionary format
+        print(f"Processing {len(structures)} code files (dictionary format)...")
         
-        # Store the file's embeddings
-        embeddings[file_path] = file_embeddings
+        # Generate embeddings for each structure
+        for file_path, file_info in tqdm(structures.items(), desc="Generating embeddings"):
+            file_embeddings = {}
+            
+            # Generate embeddings for each function in the file
+            for func_info in file_info["functions"]:
+                func_id = func_info["id"]
+                code = func_info["code"]
+                docstring = func_info.get("docstring", "")
+                
+                # Generate embedding
+                embedding = provider.embed_code(code=code, docstring=docstring)
+                
+                # Store the embedding
+                file_embeddings[func_id] = embedding
+                
+                # Force garbage collection after each embedding to free memory
+                gc.collect()
+            
+            # Store the file's embeddings
+            embeddings[file_path] = file_embeddings
     
     # Save the embeddings to a file
     with open(output_file, 'w') as f:

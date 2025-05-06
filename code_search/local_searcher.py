@@ -1,18 +1,18 @@
-from typing import List
+from typing import List, Optional
 import json
 
 from code_search.local_search import search
 
 class LocalSearcher:
-    def __init__(self):
-        pass
+    def __init__(self, embeddings_provider=None):
+        self.embeddings_provider = embeddings_provider
         
     def search(self, query, limit=5) -> List[dict]:
         """
         Search for code structures that match the query and format them
         in a way the frontend expects.
         """
-        results = search(query, limit=limit)
+        results = search(query, limit=limit, embeddings_provider=self.embeddings_provider)
         formatted_results = []
         
         for item in results:
@@ -43,8 +43,8 @@ class LocalSearcher:
         return formatted_results
         
 class CombinedSearcher:
-    def __init__(self):
-        self.searcher = LocalSearcher()
+    def __init__(self, embeddings_provider=None):
+        self.searcher = LocalSearcher(embeddings_provider=embeddings_provider)
         
     def search(self, query, limit=5) -> List[dict]:
         results = self.searcher.search(query, limit=limit)
