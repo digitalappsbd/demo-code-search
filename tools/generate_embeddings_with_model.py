@@ -153,12 +153,20 @@ def main():
     # Process each structure in the list with progress bar
     print(f"Processing {len(to_process)} out of {len(structures_list)} code structures...")
     
-    # Create a progress bar
-    pbar = tqdm(total=len(to_process), desc="Generating embeddings")
+    # Create a progress bar with more information
+    pbar = tqdm(
+        total=len(to_process), 
+        desc="Generating embeddings",
+        bar_format="{l_bar}{bar:30}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"
+    )
     
     # Process in batches for checkpointing
     checkpoint_counter = 0
     start_time = time.time()
+    
+    # Track and report progress periodically
+    processed_count = 0
+    total_count = len(to_process)
     
     for structure in to_process:
         file_path = structure["file_path"]
@@ -183,6 +191,12 @@ def main():
         
         # Update progress bar
         pbar.update(1)
+        processed_count += 1
+        
+        # Output progress percentage for backend to capture
+        if processed_count % 5 == 0 or processed_count == total_count:
+            progress_pct = (processed_count / total_count) * 100
+            print(f"Progress: {progress_pct:.1f}% ({processed_count}/{total_count})")
         
         # Save checkpoint periodically
         checkpoint_counter += 1

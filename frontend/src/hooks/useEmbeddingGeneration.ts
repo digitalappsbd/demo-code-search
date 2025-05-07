@@ -8,6 +8,7 @@ type EmbeddingStatus = {
   start_time: number | null;
   end_time: number | null;
   total?: number;
+  processed?: number;
 };
 
 type EmbeddingOptions = {
@@ -90,7 +91,7 @@ export const useEmbeddingGeneration = () => {
     if (isPolling) {
       intervalId = setInterval(() => {
         fetchStatus();
-      }, 1000); // Poll every second
+      }, 500); // Poll every 500ms for better responsiveness
     }
     
     // Cleanup

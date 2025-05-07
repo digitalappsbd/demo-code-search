@@ -3,7 +3,6 @@ import {
   Container,
   TextInput,
   Box,
-  Image,
   Title,
   Text,
   Loader,
@@ -285,13 +284,6 @@ export default function Main() {
               justifyContent: "center",
             }}
           >
-            <Image
-              src="/quantum.svg"
-              height={300}
-              width={300}
-              alt="Code Search"
-              style={{ opacity: 0.8 }}
-            />
             <Title
               order={1}
               size="h2"

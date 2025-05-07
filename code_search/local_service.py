@@ -3,6 +3,7 @@ import tempfile
 import logging
 import subprocess
 import time
+import glob
 from typing import List, Optional
 
 from fastapi import FastAPI, BackgroundTasks
@@ -149,10 +150,29 @@ def run_embedding_generation(model: str, force: bool, use_gpu: bool):
                             current = int(parts[i-1])
                             total = int(parts[i+2])
                             embedding_process["total"] = total
-                            embedding_process["progress"] = int((current / total) * 100)
+                            # Only set progress to 100% if truly complete
+                            progress_percent = int((current / total) * 100)
+                            if progress_percent < 100 or "Processing" not in line:
+                                embedding_process["progress"] = progress_percent
                             break
                 except Exception as e:
                     logger.error(f"Error parsing progress info: {e}")
+            
+            # Parse direct progress output
+            elif "Progress:" in line and "%" in line:
+                try:
+                    # Example: "Progress: 45.5% (262/575)"
+                    progress_part = line.split("%")[0].split(":")[1].strip()
+                    embedding_process["progress"] = min(99, int(float(progress_part)))
+                    
+                    # Also extract current/total if available
+                    if "(" in line and ")" in line:
+                        counts = line.split("(")[1].split(")")[0].split("/")
+                        if len(counts) == 2:
+                            embedding_process["processed"] = int(counts[0])
+                            embedding_process["total"] = int(counts[1])
+                except Exception as e:
+                    logger.error(f"Error parsing direct progress output: {e}")
             
             # Parse tqdm progress bar format
             elif "|" in line and "%" in line:
@@ -161,7 +181,9 @@ def run_embedding_generation(model: str, force: bool, use_gpu: bool):
                     percent_part = line.split("|")[0].strip()
                     if "%" in percent_part:
                         percent = int(float(percent_part.replace("%", "").strip()))
-                        embedding_process["progress"] = percent
+                        # Don't set progress to 100% unless the process is actually complete
+                        if percent < 100:
+                            embedding_process["progress"] = percent
                 except Exception as e:
                     logger.error(f"Error parsing tqdm output: {e}")
             
@@ -246,6 +268,31 @@ def run_structure_generation(target_dir: str, pattern: str, max_lines: int, forc
         if not target_dir:
             # Use the parent directory or a specific code directory
             target_dir = os.path.dirname(ROOT_DIR)
+        
+        # Clean target_dir - strip whitespace and ensure no trailing slash
+        target_dir = target_dir.strip().rstrip('/')
+        
+        # Verify directory exists before proceeding
+        if not os.path.isdir(target_dir):
+            err_msg = f"Target directory does not exist or is not a directory: '{target_dir}'"
+            logger.error(err_msg)
+            structure_process["status"] = "failed"
+            structure_process["message"] = err_msg
+            return
+        
+        # Determine if we're specifying a directory directly without a pattern
+        if os.path.isdir(target_dir) and (pattern == "**/*.py" or pattern == "**/*.dart"):
+            # Use the appropriate default pattern based on likely files in the target directory
+            # Check if this is a Flutter project by seeing if any .dart files exist
+            if glob.glob(os.path.join(target_dir, "**/*.dart"), recursive=True):
+                pattern = "**/*.dart"
+                logger.info(f"Detected Flutter project, using pattern: {pattern}")
+            else:
+                pattern = "**/*.py"
+                logger.info(f"Using default pattern: {pattern}")
+                
+        # Clean pattern
+        pattern = pattern.strip()
         
         # Build the command
         cmd = [
@@ -349,24 +396,47 @@ async def generate_structures(request: StructureRequest, background_tasks: Backg
         "end_time": None
     }
     
+    # Process the target directory to ensure it exists and is a directory
+    target_dir = request.target_dir.strip() if request.target_dir else ""
+    
+    if target_dir:
+        # Clean the target directory path
+        target_dir = target_dir.strip().rstrip('/')
+        
+        if os.path.exists(target_dir):
+            # If it's a file, use its directory
+            if os.path.isfile(target_dir):
+                target_dir = os.path.dirname(target_dir)
+                logger.info(f"Target was a file, using its directory instead: '{target_dir}'")
+        else:
+            logger.warning(f"Target directory '{target_dir}' does not exist, will use default")
+            target_dir = ""
+    
+    # Ensure pattern is clean
+    pattern = request.pattern.strip() if request.pattern else "**/*.py"
+    
     # Start structure generation in background
     background_tasks.add_task(
         run_structure_generation, 
-        target_dir=request.target_dir,
-        pattern=request.pattern,
+        target_dir=target_dir,
+        pattern=pattern,
         max_lines=request.max_lines,
         force=request.force
     )
     
     return {
         "status": "started",
-        "message": "Started code structure generation"
+        "message": f"Started code structure generation for '{target_dir}' with pattern '{pattern}'"
     }
 
 @app.get("/api/structure-status")
 async def get_structure_status():
     global structure_process
     return structure_process
+
+# Mount data directory for static files
+data_dir = os.path.join(ROOT_DIR, 'data')
+app.mount("/data", StaticFiles(directory=data_dir), name="data")
 
 # Check if frontend is built
 frontend_dir = os.path.join(ROOT_DIR, 'frontend', 'dist')

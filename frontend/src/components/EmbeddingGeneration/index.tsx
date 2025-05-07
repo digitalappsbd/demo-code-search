@@ -71,6 +71,29 @@ export const EmbeddingGeneration = () => {
     return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
   };
   
+  // Calculate estimated time remaining
+  const getEstimatedTimeRemaining = () => {
+    if (!status.start_time || !status.total || !status.processed || status.progress >= 100) {
+      return null;
+    }
+    
+    const elapsed = (Date.now() / 1000) - status.start_time;
+    const processed = status.processed || 0;
+    const remaining = status.total - processed;
+    
+    // Calculate time per item
+    const timePerItem = processed > 0 ? elapsed / processed : 0;
+    
+    // Estimate remaining time
+    const estimatedRemaining = timePerItem * remaining;
+    if (estimatedRemaining <= 0) return null;
+    
+    const minutes = Math.floor(estimatedRemaining / 60);
+    const seconds = Math.floor(estimatedRemaining % 60);
+    
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  };
+  
   return (
     <Paper p="md" withBorder radius="md" mb="xl">
       <Title order={3} mb="md">Embedding Generation</Title>
@@ -106,7 +129,11 @@ export const EmbeddingGeneration = () => {
             <Text size="sm" fw={500}>
               {status.status === 'running' ? 'Generating embeddings...' : 'Embedding generation complete'}
             </Text>
-            <Text size="xs" c="dimmed">{status.progress}%</Text>
+            <Text size="xs" c="dimmed">
+              {status.status === 'running' && status.progress === 100 
+                ? 'Processing... (This may take several minutes)' 
+                : `${status.progress}%`}
+            </Text>
           </Group>
           
           <Progress 
@@ -122,10 +149,18 @@ export const EmbeddingGeneration = () => {
             <Text size="xs" c="dimmed">Time elapsed: {getElapsedTime()}</Text>
             {status.total && (
               <Text size="xs" c="dimmed">
-                Processing {status.total} code structures
+                {status.processed && status.processed < status.total 
+                  ? `Processing ${status.processed}/${status.total} code structures` 
+                  : `Processing ${status.total} code structures`}
               </Text>
             )}
           </Group>
+          
+          {getEstimatedTimeRemaining() && (
+            <Text size="xs" c="dimmed" mt={5}>
+              Estimated time remaining: {getEstimatedTimeRemaining()}
+            </Text>
+          )}
           
           <Text size="sm" mt="md" c="dimmed">
             <Code>{status.message}</Code>

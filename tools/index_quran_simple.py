@@ -25,12 +25,12 @@ parser.add_argument('--force', action='store_true',
 args = parser.parse_args()
 
 # Set up paths
-QURAN_CODEBASE_PATH = args.target_dir
+QURAN_CODEBASE_PATH = args.target_dir.strip()
 DATA_PATH = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "data"
 DATA_PATH.mkdir(exist_ok=True)
 STRUCTURES_JSON_PATH = DATA_PATH / "structures.json"
 
-print(f"Using codebase path: {QURAN_CODEBASE_PATH}")
+print(f"Using codebase path: '{QURAN_CODEBASE_PATH}'")
 
 # Set up Qdrant client
 QDRANT_URL = os.environ.get("QDRANT_URL")
@@ -106,13 +106,49 @@ def process_flutter_files():
     print("Processing Flutter files...")
     
     # Get all files matching the pattern
-    file_pattern = args.pattern if args.pattern.startswith('**') else f"**/{args.pattern}"
-    dart_files = glob.glob(f"{QURAN_CODEBASE_PATH}/{file_pattern}", recursive=True)
-    print(f"Found {len(dart_files)} files to process")
+    if os.path.isdir(QURAN_CODEBASE_PATH):
+        # If the target is a directory without a pattern specified or a directory is specified directly
+        if args.pattern == "**/*.dart" and not QURAN_CODEBASE_PATH.endswith(".dart"):
+            # Use all dart files in that directory and subdirectories
+            file_pattern = "**/*.dart"
+            dart_files = glob.glob(os.path.join(QURAN_CODEBASE_PATH, file_pattern), recursive=True)
+            print(f"Searching recursively in directory: '{QURAN_CODEBASE_PATH}' for *.dart files")
+        elif args.pattern.startswith('**'):
+            # Already a recursive pattern
+            file_pattern = args.pattern
+            dart_files = glob.glob(os.path.join(QURAN_CODEBASE_PATH, file_pattern), recursive=True)
+        elif args.pattern.startswith('*'):
+            # For patterns like *.dart, we should only search in the immediate directory
+            # without recursing into subdirectories
+            file_pattern = args.pattern
+            dart_files = glob.glob(os.path.join(QURAN_CODEBASE_PATH, file_pattern), recursive=False)
+            print(f"Searching only in immediate directory: '{QURAN_CODEBASE_PATH}'")
+        else:
+            # For other patterns, assume it should be recursive but check both
+            file_pattern = args.pattern
+            dart_files = glob.glob(os.path.join(QURAN_CODEBASE_PATH, file_pattern), recursive=False)
+            if not dart_files:  # If no files found, try with recursive
+                file_pattern = f"**/{args.pattern}"
+                dart_files = glob.glob(os.path.join(QURAN_CODEBASE_PATH, file_pattern), recursive=True)
+    else:
+        print(f"Error processing '{QURAN_CODEBASE_PATH}': Is not a directory")
+        sys.exit(1)
+    
+    print(f"Found {len(dart_files)} files to process with pattern: {args.pattern}")
+    for f in dart_files[:5]:  # Print first few files for debugging
+        print(f"  - {f}")
+    if len(dart_files) > 5:
+        print(f"  ... and {len(dart_files) - 5} more")
+    
     code_structures = []
     
     for file_path in tqdm(dart_files):
         try:
+            # Skip directories that might have been caught by the glob pattern
+            if os.path.isdir(file_path):
+                print(f"Skipping directory: {file_path}")
+                continue
+                
             relative_path = os.path.relpath(file_path, start=QURAN_CODEBASE_PATH)
             with open(file_path, 'r', encoding='utf-8') as f:
                 code = f.read()
