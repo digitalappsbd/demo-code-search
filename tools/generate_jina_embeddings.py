@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
 """
-Script to generate embeddings using multiple model options.
-This script provides a unified interface to generate embeddings
-using one of the supported embedding models:
-- nomic-ai/nomic-embed-code
-- Qodo/Qodo-Embed-1-1.5B
-- jinaai/jina-embeddings-v2-small-en
-
-Features:
+Script to generate embeddings using the jinaai/jina-embeddings-v2-small-en model.
+Improved with:
 - Progress tracking
 - Checkpoint logic
 - Optional GPU acceleration
 - Resume capability for interrupted jobs
-- Model selection
 """
 import os
 import sys
@@ -26,51 +19,18 @@ from tqdm import tqdm
 project_root = Path(__file__).resolve().parents[1]
 sys.path.append(str(project_root))
 
-# Import model providers
-from code_search.model.nomic_embed import NomicEmbeddingsProvider
-from code_search.model.qodo_embed import QodoEmbeddingsProvider
 from code_search.model.jina_embed import JinaEmbeddingsProvider
-
-# Available models
-AVAILABLE_MODELS = {
-    "nomic": {
-        "name": "nomic-ai/nomic-embed-code",
-        "provider_class": NomicEmbeddingsProvider,
-        "default_output": "embeddings.json"
-    },
-    "qodo": {
-        "name": "Qodo/Qodo-Embed-1-1.5B",
-        "provider_class": QodoEmbeddingsProvider,
-        "default_output": "qodo_embeddings.json"
-    },
-    "jina": {
-        "name": "jinaai/jina-embeddings-v2-small-en",
-        "provider_class": JinaEmbeddingsProvider,
-        "default_output": "jina_embeddings.json"
-    }
-}
 
 def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Generate embeddings using various embedding models")
-    parser.add_argument("--model", type=str, choices=list(AVAILABLE_MODELS.keys()), default="nomic",
-                      help=f"Embedding model to use (default: nomic)")
+    parser = argparse.ArgumentParser(description="Generate embeddings using the jinaai/jina-embeddings-v2-small-en model")
     parser.add_argument("--force", action="store_true", help="Force regeneration of all embeddings")
     parser.add_argument("--gpu", action="store_true", help="Use GPU for embedding generation if available")
     parser.add_argument("--batch-size", type=int, default=8, help="Batch size for embedding generation")
     parser.add_argument("--checkpoint-interval", type=int, default=10, help="Save checkpoints after processing this many items")
-    parser.add_argument("--output", type=str, help="Output filename (defaults to model-specific name)")
+    parser.add_argument("--output", type=str, default="jina_embeddings.json", help="Output filename (default: jina_embeddings.json)")
     args = parser.parse_args()
-    
-    # Select model config
-    model_config = AVAILABLE_MODELS[args.model]
-    model_name = model_config["name"]
-    provider_class = model_config["provider_class"]
-    
-    # Set default output filename if not specified
-    if not args.output:
-        args.output = model_config["default_output"]
-    
+
     # Define paths
     structures_file = os.path.join(project_root, "data", "structures.json")
     output_file = os.path.join(project_root, "data", args.output)
@@ -137,11 +97,11 @@ def main():
             print(f"Warning: Could not parse checkpoint file. Ignoring it.")
     
     # Generate embeddings
-    print(f"Generating embeddings using {model_name} model...")
+    print("Generating embeddings using jinaai/jina-embeddings-v2-small-en model...")
     
     # Initialize the embedding provider
     device = "cuda" if args.gpu else "cpu"
-    provider = provider_class(device=device)
+    provider = JinaEmbeddingsProvider(device=device)
     
     # Load the code structures (as a list)
     with open(structures_file, 'r') as f:

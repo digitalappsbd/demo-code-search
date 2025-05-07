@@ -18,6 +18,8 @@ RUN pip install -r requirements.txt
 # Example:
 RUN python -c 'from sentence_transformers import SentenceTransformer; SentenceTransformer("all-MiniLM-L6-v2");'
 RUN python -c 'from transformers import RobertaTokenizer, RobertaModel, RobertaConfig; RobertaTokenizer.from_pretrained("microsoft/unixcoder-base") ; RobertaModel.from_pretrained("microsoft/unixcoder-base") ; RobertaConfig.from_pretrained("microsoft/unixcoder-base");'
+# Install Jina Embeddings
+RUN python -c 'from sentence_transformers import SentenceTransformer; SentenceTransformer("jinaai/jina-embeddings-v2-small-en", trust_remote_code=True);'
 
 # Creating folders, and files for a project:
 COPY . /code

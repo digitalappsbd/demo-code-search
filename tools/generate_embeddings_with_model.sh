@@ -8,7 +8,7 @@ show_help() {
     echo
     echo "Options:"
     echo "  --help                Show this help message and exit"
-    echo "  --model MODEL         Embedding model to use: nomic (default) or qodo"
+    echo "  --model MODEL         Embedding model to use: nomic (default), qodo, or jina"
     echo "  --force               Force regeneration of all embeddings"
     echo "  --gpu                 Use GPU acceleration if available (CUDA or MPS)"
     echo "  --batch-size N        Set batch size for embedding generation (default: 8)"
@@ -18,6 +18,7 @@ show_help() {
     echo "Examples:"
     echo "  ./tools/generate_embeddings_with_model.sh                       # Use default model (nomic)"
     echo "  ./tools/generate_embeddings_with_model.sh --model qodo          # Use the Qodo model"
+    echo "  ./tools/generate_embeddings_with_model.sh --model jina          # Use the Jina model"
     echo "  ./tools/generate_embeddings_with_model.sh --gpu --model qodo    # Use GPU with Qodo model"
     echo "  ./tools/generate_embeddings_with_model.sh --output custom.json  # Save to custom filename"
 }
@@ -59,6 +60,9 @@ if command -v nvidia-smi &> /dev/null; then
 elif [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
     echo "Apple Silicon detected with MPS support"
 fi
+
+# Make sure the data directory exists
+mkdir -p data
 
 # Run the embedding generation script with all arguments passed through
 echo "Running embedding generator with arguments: $@"

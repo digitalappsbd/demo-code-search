@@ -177,7 +177,8 @@ export const EmbeddingGeneration = () => {
           description="Select the model to use for generation"
           data={[
             { value: 'qodo', label: 'Qodo Embed' },
-            { value: 'nomic', label: 'Nomic Embed' }
+            { value: 'nomic', label: 'Nomic Embed' },
+            { value: 'jina', label: 'Jina Embeddings v2' }
           ]}
           value={model}
           onChange={(value) => setModel(value || 'qodo')}
