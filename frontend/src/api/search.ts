@@ -5,12 +5,14 @@ import {
     GENERATE_EMBEDDINGS_URL, 
     EMBEDDING_STATUS_URL,
     GENERATE_STRUCTURES_URL,
-    STRUCTURE_STATUS_URL
+    STRUCTURE_STATUS_URL,
+    AVAILABLE_EMBEDDINGS_URL
 } from "./constants";
 
 
 export type SearchRequest = {
     query: string;
+    model?: string;
 }
 
 export type MergeRequest = {
@@ -34,6 +36,7 @@ export type StructureRequest = {
 export const getSearchResult = (searchRequest:SearchRequest) => {
     const params = {
         query: searchRequest.query,
+        ...(searchRequest.model && { model: searchRequest.model })
     }
     return Axios().get(SEARCH_URL, { params });
 };
@@ -56,4 +59,8 @@ export const generateStructures = (structureRequest: StructureRequest) => {
 
 export const getStructureStatus = () => {
     return Axios().get(STRUCTURE_STATUS_URL);
+};
+
+export const getAvailableEmbeddings = () => {
+    return Axios().get(AVAILABLE_EMBEDDINGS_URL);
 };

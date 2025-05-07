@@ -55,14 +55,27 @@ structure_process = {
     "end_time": None
 }
 
+def resetSearcher():
+    """Reset the global searcher instance to load new embeddings"""
+    global searcher
+    logger.info("Resetting searcher to load new embeddings")
+    searcher = CombinedSearcher()
+
 @app.get("/api/search")
-async def search(query: str):
-    logger.info(f"Received search request: {query}")
-    results = searcher.search(query, limit=100)
-    logger.info(f"Returning {len(results)} results")
-    return {
-        "result": results
-    }
+async def search(query: str, model: str = None):
+    logger.info(f"Received search request: {query}" + (f" with model: {model}" if model else ""))
+    try:
+        results = searcher.search(query, limit=100, model=model)
+        logger.info(f"Returning {len(results)} results")
+        return {
+            "result": results
+        }
+    except Exception as e:
+        logger.error(f"Error processing search request: {str(e)}")
+        return {
+            "result": [],
+            "error": f"Search error: {str(e)}"
+        }
 
 @app.get("/api/file")
 async def file(path: str, codebase_path: Optional[str] = None):
@@ -211,8 +224,7 @@ def run_embedding_generation(model: str, force: bool, use_gpu: bool, batch_size:
     finally:
         embedding_process["end_time"] = time.time()
         # Reset the searcher to load the new embeddings
-        global searcher
-        searcher = CombinedSearcher()
+        resetSearcher()
 
 @app.post("/api/generate-embeddings")
 async def generate_embeddings(request: EmbeddingRequest, background_tasks: BackgroundTasks):
@@ -444,6 +456,38 @@ async def generate_structures(request: StructureRequest, background_tasks: Backg
 async def get_structure_status():
     global structure_process
     return structure_process
+
+@app.get("/api/available-embeddings")
+async def get_available_embeddings():
+    """Get a list of available embedding models based on embedding files in the data directory."""
+    logger.info("Fetching available embedding models")
+    embedding_files = glob.glob(os.path.join(ROOT_DIR, "data", "*embeddings.json"))
+    
+    models = []
+    for file_path in embedding_files:
+        filename = os.path.basename(file_path)
+        if filename == "embeddings.json":
+            models.append({"value": "default", "label": "Default"})
+        elif "_embeddings.json" in filename:
+            model_name = filename.replace("_embeddings.json", "")
+            # Make the label more user-friendly
+            if model_name == "qodo":
+                label = "Qodo Embed"
+            elif model_name == "nomic":
+                label = "Nomic Embed"
+            elif model_name == "jina":
+                label = "Jina Embeddings v2"
+            else:
+                label = model_name.capitalize()
+            
+            models.append({"value": model_name, "label": label})
+    
+    # Ensure we have at least a default option
+    if not models:
+        models.append({"value": "default", "label": "Default"})
+    
+    logger.info(f"Found {len(models)} embedding models: {models}")
+    return {"models": models}
 
 # Mount data directory for static files
 data_dir = os.path.join(ROOT_DIR, 'data')

@@ -11,7 +11,7 @@ class HybridSearcher:
     def __init__(self):
         pass
         
-    def search(self, query, limit=5) -> List[dict]:
+    def search(self, query, limit=5, model=None) -> List[dict]:
         """
         Search for code structures that match the query using a hybrid search approach
         that combines semantic search with text-based matching for filenames,
@@ -20,12 +20,13 @@ class HybridSearcher:
         Args:
             query: The search query string
             limit: Maximum number of results to return
+            model: The model to use for the search
             
         Returns:
             A list of search results formatted for the frontend
         """
-        logger.info(f"HybridSearcher executing search for query: {query}")
-        results = hybrid_search(query, limit=limit)
+        logger.info(f"HybridSearcher executing search for query: {query}" + (f" with model: {model}" if model else ""))
+        results = hybrid_search(query, limit=limit, model=model)
         logger.info(f"Received {len(results)} results from hybrid_search")
         
         formatted_results = []
@@ -78,9 +79,9 @@ class CombinedSearcher:
         self.searcher = HybridSearcher()
         logger.info("CombinedSearcher initialized with HybridSearcher")
         
-    def search(self, query, limit=5) -> List[dict]:
-        logger.info(f"CombinedSearcher executing search for query: {query}")
-        results = self.searcher.search(query, limit=limit)
+    def search(self, query, limit=5, model=None) -> List[dict]:
+        logger.info(f"CombinedSearcher executing search for query: {query}" + (f" with model: {model}" if model else ""))
+        results = self.searcher.search(query, limit=limit, model=model)
         logger.info(f"CombinedSearcher returning {len(results)} results")
         return results
         

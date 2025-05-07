@@ -10,6 +10,7 @@ import {
   Tooltip,
   Notification,
   Tabs,
+  Select
 } from "@mantine/core";
 import { IconSearch, IconCopy, IconFileCode, IconBrain, IconCode, IconSettings } from "@tabler/icons-react";
 import useMountedState from "@/hooks/useMountedState";
@@ -20,12 +21,13 @@ import { CodeContainer } from "../CodeContainer";
 import classes from "./Main.module.css";
 import DemoSearch from "../DemoSearch";
 import { useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { copyToClipboard } from "@/utils/clipboard";
 import { mergeCodes } from "@/api/search";
 import EmbeddingGeneration from "../EmbeddingGeneration";
 import StructureGeneration from "../StructureGeneration";
 import CodebaseSettings from "../CodebaseSettings";
+import { getAvailableEmbeddings } from "@/api/search";
 
 export default function Main() {
   const [query, setQuery] = useMountedState("");
@@ -35,6 +37,9 @@ export default function Main() {
     visible: boolean;
     message: string;
   }>({ visible: false, message: "" });
+  const [embeddingModels, setEmbeddingModels] = useState<{value: string, label: string}[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   useHotkeys([
     [
@@ -45,25 +50,55 @@ export default function Main() {
       },
     ],
   ]);
+  
+  // Fetch available embedding models
+  useEffect(() => {
+    const fetchEmbeddingModels = async () => {
+      setLoadingModels(true);
+      try {
+        const response = await getAvailableEmbeddings();
+        if (response.data && response.data.models) {
+          setEmbeddingModels(response.data.models);
+        }
+      } catch (err) {
+        console.error("Error fetching embedding models:", err);
+      } finally {
+        setLoadingModels(false);
+      }
+    };
+    
+    fetchEmbeddingModels();
+  }, []);
+
   const handleSubmit = () => {
     resetData();
     if (query) {
-      getSearch(query);
-      setSearchParams({ query });
+      getSearch(query, selectedModel || undefined);
+      setSearchParams({ 
+        query,
+        ...(selectedModel && { model: selectedModel })
+      });
     }
   };
 
   const handleDemoSearch = (query: string) => {
     resetData();
     if (query) {
-      setSearchParams({ query: query });
+      setSearchParams({ 
+        query, 
+        ...(selectedModel && { model: selectedModel })
+      });
       setQuery(query);
-      getSearch(query);
+      getSearch(query, selectedModel || undefined);
     }
   };
 
   useEffect(() => {
-    if (searchParams.get("query")&&searchParams.get("query")!==query) {
+    if (searchParams.get("query") && searchParams.get("query") !== query) {
+      const modelParam = searchParams.get("model");
+      if (modelParam) {
+        setSelectedModel(modelParam);
+      }
       handleDemoSearch(searchParams.get("query") ?? "");
     }
   }, [searchParams.get("query")]);
@@ -149,38 +184,57 @@ export default function Main() {
 
   return (
     <Container size="lg">
-      <TextInput
-        radius={4}
-        size="md"
-        leftSection={<IconSearch color="#102252" />}
-        placeholder="Enter a query"
-        rightSection={
-          <Button
-            radius={4}
-            w={"100%"}
-            size={"md"}
-            variant="filled"
-            color="Primary.2"
-            onClick={handleSubmit}
-          >
-            Search
-          </Button>
-        }
-        rightSectionWidth={"6rem"}
-        value={query}
-        pt={data || loading ? "1rem" : "5rem"}
-        required
-        onChange={(event: any) => setQuery(event.currentTarget.value)}
-        onKeyDown={getHotkeyHandler([["Enter", handleSubmit]])}
-        classNames={{ input: classes.input }}
-        style={{
-          position: "sticky",
-          top: 56,
-          zIndex: 100,
-          backgroundColor: "#fff",
-        }}
-        ref={(input) => input && input.focus()}
-      />
+      <Group pb="xs" align="flex-end">
+        <TextInput
+          radius={4}
+          size="md"
+          leftSection={<IconSearch color="#102252" />}
+          placeholder="Enter a query"
+          rightSection={
+            <Button
+              radius={4}
+              w={"100%"}
+              size={"md"}
+              variant="filled"
+              color="Primary.2"
+              onClick={handleSubmit}
+            >
+              Search
+            </Button>
+          }
+          rightSectionWidth={"6rem"}
+          value={query}
+          required
+          onChange={(event: any) => setQuery(event.currentTarget.value)}
+          onKeyDown={getHotkeyHandler([["Enter", handleSubmit]])}
+          classNames={{ input: classes.input }}
+          style={{
+            position: "sticky",
+            top: 56,
+            zIndex: 100,
+            backgroundColor: "#fff",
+          }}
+          ref={(input) => input && input.focus()}
+          w="70%"
+        />
+        
+        <Select
+          label="Search using embeddings"
+          description="Select which embedding model to use for searching"
+          placeholder="Select embedding model"
+          data={embeddingModels}
+          value={selectedModel}
+          onChange={setSelectedModel}
+          w="30%"
+          disabled={loadingModels}
+        />
+      </Group>
+
+      {selectedModel && (
+        <Text size="xs" c="dimmed" mt="-xs" mb="xs">
+          Current search will use: <strong>{embeddingModels.find(m => m.value === selectedModel)?.label}</strong>
+        </Text>
+      )}
 
       {clipboardNotification.visible && (
         <Notification
@@ -192,7 +246,6 @@ export default function Main() {
           {clipboardNotification.message}
         </Notification>
       )}
-
 
       {data && (
         <>
