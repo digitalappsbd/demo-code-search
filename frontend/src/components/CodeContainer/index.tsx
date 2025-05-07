@@ -40,45 +40,57 @@ export function CodeContainer(props: CodeContainerProps) {
   const [codeLineFrom, setCodeLineFrom] = useMountedState(line_from);
   const [codeLineTo, setCodeLineTo] = useMountedState(line_to);
   const [code, setCode] = useMountedState(props.context.snippet);
-  const { data, error, loading, getFile } = useGetFile();
+  const { data, error, loading, getFile, codebasePath } = useGetFile();
   const [inStack, setInStack] = useMountedState<
     "loadUpperCode" | "loadLowerCode" | null
   >(null);
 
-  const loadUpperCode = () => {
-    if (!data) {
-      getFile(context.file_path);
-      setInStack("loadUpperCode");
-    }
-    if (data) {
-      const upperCodeArray = data.result[0].code;
-      const upperCode = upperCodeArray
-        .slice(
-          codeLineFrom - loadCount - 1 > 0 ? codeLineFrom - loadCount - 1 : 0,
-          codeLineFrom - 1 // Array start from 0.
-        )
-        .join("");
-      setCodeLineFrom((number) => {
-        return number - loadCount - 1 > 0 ? number - loadCount : 1;
-      });
-      setCode(`${upperCode}${code}`);
+  const loadUpperCode = async () => {
+    setInStack("loadUpperCode");
+    try {
+      if (context.file_path) {
+        await getFile(context.file_path, codebasePath);
+        if (data?.result?.[0]?.code) {
+          const upperCodeArray = data.result[0].code;
+          const upperCode = upperCodeArray
+            .slice(
+              codeLineFrom - loadCount - 1 > 0 ? codeLineFrom - loadCount - 1 : 0,
+              codeLineFrom - 1 // Array start from 0.
+            )
+            .join("");
+          setCodeLineFrom((number) => {
+            return number - loadCount - 1 > 0 ? number - loadCount : 1;
+          });
+          setCode(`${upperCode}${code}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading upper code:", error);
+    } finally {
+      setInStack(null);
     }
   };
 
-  const loadLowerCode = () => {
-    if (!data) {
-      getFile(context.file_path);
-      setInStack("loadLowerCode");
-    }
-    if (data) {
-      const lowerCodeArray = data.result[0].code;
-      const lowerCode = lowerCodeArray
-        .slice(codeLineTo, codeLineTo + loadCount)
-        .join("");
-      setCodeLineTo((number) => {
-        return number + loadCount;
-      });
-      setCode(`${code}${lowerCode}`);
+  const loadLowerCode = async () => {
+    setInStack("loadLowerCode");
+    try {
+      if (context.file_path) {
+        await getFile(context.file_path, codebasePath);
+        if (data?.result?.[0]?.code) {
+          const lowerCodeArray = data.result[0].code;
+          const lowerCode = lowerCodeArray
+            .slice(codeLineTo, codeLineTo + loadCount)
+            .join("");
+          setCodeLineTo((number) => {
+            return number + loadCount;
+          });
+          setCode(`${code}${lowerCode}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading lower code:", error);
+    } finally {
+      setInStack(null);
     }
   };
 

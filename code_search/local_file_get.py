@@ -2,8 +2,8 @@ import os
 from typing import List, Dict, Any
 
 class FileGet:
-    def __init__(self):
-        self.codebase_path = "/Users/devsufi/Documents/GitHub/Quran-Majeed/lib"
+    def __init__(self, codebase_path=None):
+        self.codebase_path = codebase_path or "/Users/devsufi/Documents/GitHub/Quran-Majeed/lib"
     
     def get(self, path, limit=5) -> List[Dict[str, Any]]:
         """Get the content of a file by path."""

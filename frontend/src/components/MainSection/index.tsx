@@ -12,7 +12,7 @@ import {
   Notification,
   Tabs,
 } from "@mantine/core";
-import { IconSearch, IconCopy, IconFileCode, IconBrain } from "@tabler/icons-react";
+import { IconSearch, IconCopy, IconFileCode, IconBrain, IconCode } from "@tabler/icons-react";
 import useMountedState from "@/hooks/useMountedState";
 import { useGetSearchResult } from "@/hooks/useGetSearchResult";
 import { getHotkeyHandler, useHotkeys } from "@mantine/hooks";
@@ -20,15 +20,19 @@ import { FileTree } from "../FIleTree";
 import { CodeContainer } from "../CodeContainer";
 import classes from "./Main.module.css";
 import DemoSearch from "../DemoSearch";
+import { CodebasePath } from "../DemoSearch";
 import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { copyToClipboard } from "@/utils/clipboard";
 import { mergeCodes } from "@/api/search";
 import EmbeddingGeneration from "../EmbeddingGeneration";
+import StructureGeneration from "../StructureGeneration";
+import { useGetFile } from "@/hooks/useGetFile";
 
 export default function Main() {
   const [query, setQuery] = useMountedState("");
   const { data, getSearch, loading, error, resetData } = useGetSearchResult();
+  const { codebasePath, updateCodebasePath } = useGetFile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [clipboardNotification, setClipboardNotification] = useMountedState<{
     visible: boolean;
@@ -192,6 +196,11 @@ export default function Main() {
         </Notification>
       )}
 
+      <CodebasePath 
+        codebasePath={codebasePath}
+        onUpdateCodebasePath={updateCodebasePath}
+      />
+
       {data && (
         <>
           <Group justify="flex-end" mt="md" mb="sm">
@@ -247,6 +256,9 @@ export default function Main() {
               <Tabs.Tab value="search" leftSection={<IconSearch size="0.8rem" />}>
                 Search Examples
               </Tabs.Tab>
+              <Tabs.Tab value="structures" leftSection={<IconCode size="0.8rem" />}>
+                Structure Generation
+              </Tabs.Tab>
               <Tabs.Tab value="embeddings" leftSection={<IconBrain size="0.8rem" />}>
                 Embedding Generation
               </Tabs.Tab>
@@ -254,6 +266,10 @@ export default function Main() {
 
             <Tabs.Panel value="search" pt="xl">
               <DemoSearch handleDemoSearch={handleDemoSearch} />
+            </Tabs.Panel>
+            
+            <Tabs.Panel value="structures" pt="xl">
+              <StructureGeneration />
             </Tabs.Panel>
             
             <Tabs.Panel value="embeddings" pt="xl">

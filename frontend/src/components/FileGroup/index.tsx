@@ -82,6 +82,7 @@ export function LinksGroup({
             ml={"sm"}
             className={classes.lind}
             onClick={() => {
+              // First try to find the element by ID (for navigation)
               const element = document.getElementById(link.id ?? link.label);
 
               if (element) {

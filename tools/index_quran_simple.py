@@ -6,16 +6,31 @@ import sys
 import glob
 import hashlib
 import numpy as np
+import argparse
 from pathlib import Path
 from tqdm import tqdm
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
+# Parse arguments
+parser = argparse.ArgumentParser(description='Index Quran codebase structures')
+parser.add_argument('--target-dir', type=str, default="/Users/devsufi/Documents/GitHub/Quran-Majeed/lib",
+                    help='Target directory to process')
+parser.add_argument('--pattern', type=str, default="**/*.dart",
+                    help='File pattern to process')
+parser.add_argument('--max-lines', type=int, default=500,
+                    help='Maximum lines per code block')
+parser.add_argument('--force', action='store_true',
+                    help='Force regeneration even if structures exist')
+args = parser.parse_args()
+
 # Set up paths
-QURAN_CODEBASE_PATH = "/Users/devsufi/Documents/GitHub/Quran-Majeed/lib"
+QURAN_CODEBASE_PATH = args.target_dir
 DATA_PATH = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "data"
 DATA_PATH.mkdir(exist_ok=True)
 STRUCTURES_JSON_PATH = DATA_PATH / "structures.json"
+
+print(f"Using codebase path: {QURAN_CODEBASE_PATH}")
 
 # Set up Qdrant client
 QDRANT_URL = os.environ.get("QDRANT_URL")
@@ -90,8 +105,10 @@ def simple_encode(text, size=VECTOR_SIZE):
 def process_flutter_files():
     print("Processing Flutter files...")
     
-    # Get all Dart files
-    dart_files = glob.glob(f"{QURAN_CODEBASE_PATH}/**/*.dart", recursive=True)
+    # Get all files matching the pattern
+    file_pattern = args.pattern if args.pattern.startswith('**') else f"**/{args.pattern}"
+    dart_files = glob.glob(f"{QURAN_CODEBASE_PATH}/{file_pattern}", recursive=True)
+    print(f"Found {len(dart_files)} files to process")
     code_structures = []
     
     for file_path in tqdm(dart_files):
@@ -156,6 +173,11 @@ def process_flutter_files():
                         
                         # Extract the code segment
                         code_segment = "\n".join(lines[start_line:end_line+1])
+                        
+                        # Skip if code segment is too long
+                        if len(lines[start_line:end_line+1]) > args.max_lines:
+                            line_index = end_line
+                            continue
                         
                         # Create structure
                         structure_type = "class" if "class " in lines[start_line] else "function"
@@ -232,6 +254,11 @@ def index_structures(structures):
             print(f"Error uploading batch {i//batch_size} to {COLLECTION_NAME}: {e}")
 
 if __name__ == "__main__":
+    # Check if we should skip generation if structure exists
+    if not args.force and os.path.exists(STRUCTURES_JSON_PATH):
+        print(f"Structure file {STRUCTURES_JSON_PATH} already exists. Use --force to regenerate.")
+        sys.exit(0)
+        
     # Set up collections
     setup_collections()
     

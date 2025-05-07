@@ -1,5 +1,12 @@
 import { Axios } from "./axios";
-import { SEARCH_URL, MERGE_CODES_URL, GENERATE_EMBEDDINGS_URL, EMBEDDING_STATUS_URL } from "./constants";
+import { 
+    SEARCH_URL, 
+    MERGE_CODES_URL, 
+    GENERATE_EMBEDDINGS_URL, 
+    EMBEDDING_STATUS_URL,
+    GENERATE_STRUCTURES_URL,
+    STRUCTURE_STATUS_URL
+} from "./constants";
 
 
 export type SearchRequest = {
@@ -14,6 +21,13 @@ export type EmbeddingRequest = {
     model: string;
     force: boolean;
     use_gpu: boolean;
+}
+
+export type StructureRequest = {
+    target_dir: string;
+    pattern: string;
+    max_lines: number;
+    force: boolean;
 }
 
 export const getSearchResult = (searchRequest:SearchRequest) => {
@@ -33,4 +47,12 @@ export const generateEmbeddings = (embeddingRequest: EmbeddingRequest) => {
 
 export const getEmbeddingStatus = () => {
     return Axios().get(EMBEDDING_STATUS_URL);
+};
+
+export const generateStructures = (structureRequest: StructureRequest) => {
+    return Axios().post(GENERATE_STRUCTURES_URL, structureRequest);
+};
+
+export const getStructureStatus = () => {
+    return Axios().get(STRUCTURE_STATUS_URL);
 };

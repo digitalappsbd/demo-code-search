@@ -8,18 +8,33 @@ export type searchResponse = {
     endline: number;
     startline: number;
     path: string;
+    content?: string;
+    file_name?: string;
+    line_count?: number;
+    lines?: { content: string; line_number: number }[];
   }[];
 };
+
 export const useGetFile = () => {
   const [data, setData] = useMountedState<searchResponse | null>(null);
   const [error, setError] = useMountedState<string | null>(null);
   const [loading, setLoading] = useMountedState<boolean>(false);
+  const [codebasePath, setCodebasePath] = useMountedState<string | undefined>(undefined);
 
-  const getFile = async (path: string) => {
+  const getFile = async (path: string, codebase_path?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await getFileResult({ path });
+      
+      // If codebase_path is provided, update state
+      if (codebase_path) {
+        setCodebasePath(codebase_path);
+      }
+      
+      const res = await getFileResult({ 
+        path,
+        codebase_path: codebase_path || codebasePath
+      });
 
       switch (res.status) {
         case StatusCodes.OK: {
@@ -31,7 +46,8 @@ export const useGetFile = () => {
           setError("Failed to get the file");
         }
       }
-    } catch {
+    } catch (err) {
+      console.error("Error getting file:", err);
       setError("Failed to get the file");
     } finally {
       setLoading(false);
@@ -42,5 +58,9 @@ export const useGetFile = () => {
     setData(null);
   };
 
-  return { data, error, loading, getFile, resetData };
+  const updateCodebasePath = (path: string | undefined) => {
+    setCodebasePath(path);
+  };
+
+  return { data, error, loading, getFile, resetData, codebasePath, updateCodebasePath };
 };
