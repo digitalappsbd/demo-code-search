@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple, Optional
 # Set up paths
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT_DIR, "data")
-EMBEDDINGS_FILE = os.path.join(DATA_DIR, "embeddings.json")
+EMBEDDINGS_FILE = os.path.join(DATA_DIR, "qodo_embeddings.json")
 STRUCTURES_FILE = os.path.join(DATA_DIR, "structures.json")
 
 # Vector size for encoding
