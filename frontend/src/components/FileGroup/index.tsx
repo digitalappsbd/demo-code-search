@@ -6,6 +6,7 @@ import {
   ThemeIcon,
   UnstyledButton,
   rem,
+  Badge,
 } from "@mantine/core";
 import { IconChevronRight } from "@tabler/icons-react";
 import classes from "./FileGroup.module.css";
@@ -16,13 +17,39 @@ interface LinksGroupProps {
   initiallyOpened?: boolean;
   id?: string;
   links?: LinksGroupProps[];
+  match_type?: string;
+  matched_field?: string;
 }
+
+// Function to get a more user-friendly display name for matched field
+const getMatchedFieldDisplayName = (field?: string) => {
+  if (!field) return "";
+  
+  switch (field) {
+    case "file_name":
+      return "Filename";
+    case "function_name":
+      return "Function";
+    case "file_path":
+      return "Path";
+    case "content":
+      return "Content";
+    case "code":
+      return "Code";
+    case "docstring":
+      return "Docstring";
+    default:
+      return field;
+  }
+};
 
 export function LinksGroup({
   icon: Icon,
   label,
   initiallyOpened,
   links,
+  match_type,
+  matched_field,
 }: LinksGroupProps) {
   const [opened, setOpened] = useState(initiallyOpened || false);
 
@@ -65,7 +92,24 @@ export function LinksGroup({
             <ThemeIcon variant="transparent" size={30}>
               <link.icon style={{ width: rem(18), height: rem(18) }} />
             </ThemeIcon>
-            <Box>{link.label}</Box>
+            <Box mr="xs">{link.label}</Box>
+            {link.match_type && (
+              <Group gap="xs">
+                <Badge 
+                  size="xs"
+                  color={link.match_type === "text" ? "blue" : 
+                         link.match_type === "hybrid" ? "grape" : "green"} 
+                  variant="light"
+                >
+                  {link.match_type.charAt(0).toUpperCase() + link.match_type.slice(1)}
+                </Badge>
+                {link.matched_field && (
+                  <Badge size="xs" color="cyan" variant="outline">
+                    {getMatchedFieldDisplayName(link.matched_field)}
+                  </Badge>
+                )}
+              </Group>
+            )}
           </Box>
         </UnstyledButton>
       );
@@ -84,6 +128,23 @@ export function LinksGroup({
               <Icon style={{ width: rem(18), height: rem(18) }} />
             </ThemeIcon>
             <Box>{label}</Box>
+            {match_type && (
+              <Group ml="xs" gap="xs">
+                <Badge 
+                  size="xs"
+                  color={match_type === "text" ? "blue" : 
+                         match_type === "hybrid" ? "grape" : "green"} 
+                  variant="light"
+                >
+                  {match_type.charAt(0).toUpperCase() + match_type.slice(1)}
+                </Badge>
+                {matched_field && (
+                  <Badge size="xs" color="cyan" variant="outline">
+                    {getMatchedFieldDisplayName(matched_field)}
+                  </Badge>
+                )}
+              </Group>
+            )}
           </Box>
           {links?.length && (
             <IconChevronRight

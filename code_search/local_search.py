@@ -4,6 +4,7 @@ import hashlib
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
+import logging
 
 # Set up paths
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -13,6 +14,17 @@ STRUCTURES_FILE = os.path.join(DATA_DIR, "structures.json")
 
 # Vector size for encoding
 VECTOR_SIZE = 768
+
+# Create a global embeddings provider singleton
+_EMBEDDINGS_PROVIDER = None
+
+def get_embeddings_provider():
+    """Get or create the singleton embeddings provider."""
+    global _EMBEDDINGS_PROVIDER
+    if _EMBEDDINGS_PROVIDER is None:
+        from code_search.model.qodo_embed import QodoEmbeddingsProvider
+        _EMBEDDINGS_PROVIDER = QodoEmbeddingsProvider()
+    return _EMBEDDINGS_PROVIDER
 
 def simple_encode(text, size=VECTOR_SIZE):
     """Create a simple vector encoding from text using hashing."""
@@ -52,100 +64,103 @@ def load_structures():
     return {}
 
 def load_embeddings():
-    """Load embeddings from file."""
-    if os.path.exists(EMBEDDINGS_FILE):
-        with open(EMBEDDINGS_FILE, 'r') as f:
+    """Load embeddings from a JSON file."""
+    # First try to load qodo_embeddings.json (preferred)
+    qodo_embeddings_file = os.path.join(DATA_DIR, "qodo_embeddings.json")
+    if os.path.exists(qodo_embeddings_file):
+        with open(qodo_embeddings_file, "r") as f:
             return json.load(f)
+    
+    # Fall back to embeddings.json if qodo_embeddings.json doesn't exist
+    embeddings_file = os.path.join(DATA_DIR, "embeddings.json") 
+    if os.path.exists(embeddings_file):
+        with open(embeddings_file, "r") as f:
+            return json.load(f)
+    
     return {}
 
 def search(query: str, limit: int = 100, embeddings_provider=None) -> List[Dict[str, Any]]:
-    """Search for code structures matching the query."""
+    """Search for code structures matching the query using available embeddings."""
     # Load structures and embeddings
     structures = load_structures()
-    
     if not structures:
+        logger.warning("No structures found. Please run indexing first.")
         return []
+
+    # Use the singleton embeddings provider instead of creating a new one each time
+    if embeddings_provider is None:
+        embeddings_provider = get_embeddings_provider()
     
-    # Create query vector - either using the provided embeddings_provider or fallback to simple_encode
-    if embeddings_provider:
-        print(f"Using embeddings provider: {embeddings_provider.model_name}")
-        query_vector = embeddings_provider.embed_query(query)
-        # Load our pre-calculated embeddings for structures
-        embeddings = load_embeddings()
-    else:
-        print("Using fallback simple embedding")
-        query_vector = simple_encode(query)
-        # Convert structure dict to list for compatibility with the old code
-        structure_list = []
-        for file_path, file_info in structures.items():
-            for func_info in file_info.get("functions", []):
-                structure_list.append({
-                    "file_path": file_path,
-                    "file_name": os.path.basename(file_path),
-                    "name": func_info.get("name", ""),
-                    "structure_type": "function",
-                    "module": os.path.dirname(file_path),
-                    "docstring": func_info.get("docstring", ""),
-                    "snippet": func_info.get("code", ""),
-                    "line": func_info.get("line", 0),
-                    "line_from": func_info.get("line_from", 0),
-                    "line_to": func_info.get("line_to", 0),
-                })
-        structures = structure_list
-        
-        # Create simple embeddings for each structure
-        embeddings = {}
-        for idx, structure in enumerate(structures):
-            structure_text = f"{structure.get('name', '')} {structure.get('docstring', '')} {structure.get('snippet', '')}"
-            embeddings[str(idx)] = simple_encode(structure_text)
+    # Embed the query
+    query_vector = embeddings_provider.embed_query(query)
     
-    # Calculate similarity scores
+    # Load embeddings file
+    embeddings = load_embeddings()
+    if not embeddings:
+        logger.warning("No embeddings found. Please run indexing first.")
+        return []
+
     results = []
     
-    if embeddings_provider:
-        # Use the newer data format where structures is a dict of file paths
+    # Check if we're using the newer dictionary format or the older list format
+    if isinstance(structures, dict):
+        # Newer format: structures is a dict of file_path -> file_info
         for file_path, file_info in structures.items():
-            file_embeddings = embeddings.get(file_path, {})
-            
-            for func_info in file_info.get("functions", []):
-                func_id = func_info.get("id")
+            if file_path not in embeddings:
+                continue
                 
-                if func_id in file_embeddings:
-                    similarity = cosine_similarity(query_vector, file_embeddings[func_id])
+            file_embeddings = embeddings[file_path]
+            for func in file_info.get("functions", []):
+                func_id = func.get("id", "")
+                if not func_id or func_id not in file_embeddings:
+                    continue
                     
-                    if similarity > 0.5:  # Higher threshold for better results
-                        # Create a structure object for the frontend
-                        structure = {
-                            "file_path": file_path,
-                            "file_name": os.path.basename(file_path),
-                            "name": func_info.get("name", ""),
-                            "structure_type": "function",
-                            "module": os.path.dirname(file_path),
-                            "docstring": func_info.get("docstring", ""),
-                            "snippet": func_info.get("code", ""),
-                            "line": func_info.get("line", 0),
-                            "line_from": func_info.get("line_from", 0),
-                            "line_to": func_info.get("line_to", 0),
-                        }
-                        
-                        results.append((similarity, structure))
+                # Get the embedding vector for this function
+                embedding = file_embeddings[func_id]
+                
+                # Calculate similarity
+                similarity = cosine_similarity(query_vector, embedding)
+                
+                # Create the search result
+                result = {
+                    "file_path": file_path,
+                    "file_name": os.path.basename(file_path),
+                    "name": func.get("name", ""),
+                    "structure_type": func.get("type", "function"),
+                    "module": func.get("module", ""),
+                    "docstring": func.get("docstring", ""),
+                    "snippet": func.get("code", ""),
+                    "line": func.get("line", 0),
+                    "line_from": func.get("start_line", 0),
+                    "line_to": func.get("end_line", 0),
+                    "similarity": similarity
+                }
+                
+                results.append(result)
     else:
-        # Use the older format where structures is a list
-        for idx, structure in enumerate(structures):
-            structure_id = str(idx)
-            if structure_id in embeddings:
-                similarity = cosine_similarity(query_vector, embeddings[structure_id])
-                if similarity > 0.0 and similarity < 0.5:
-                    results.append((similarity, structure))
+        # Legacy format: structures is a list of structure objects
+        for i, structure in enumerate(structures):
+            file_path = structure.get("file_path", "")
+            if file_path not in embeddings:
+                continue
+                
+            structure_id = f"{file_path}_{structure.get('line_from', '')}_{structure.get('line_to', '')}"
+            
+            if structure_id not in embeddings[file_path]:
+                continue
+                
+            # Get the embedding vector
+            embedding = embeddings[file_path][structure_id]
+            
+            # Calculate similarity
+            similarity = cosine_similarity(query_vector, embedding)
+            
+            # Copy the structure and add the similarity score
+            result = structure.copy()
+            result["similarity"] = similarity
+            
+            results.append(result)
     
-    # Sort by similarity (descending)
-    results.sort(reverse=True, key=lambda x: x[0])
-    
-    # Return top matches
-    return [
-        {
-            "similarity": float(score),
-            "payload": structure
-        }
-        for score, structure in results[:limit]
-    ] 
+    # Sort results by similarity and limit
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    return results[:limit] 

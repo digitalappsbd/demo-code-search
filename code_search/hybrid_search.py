@@ -1,178 +1,264 @@
+import json
+import os
+import logging
 from typing import List, Dict, Any
-import re
-from code_search.local_search import search as semantic_search, load_structures
+import numpy as np
+from code_search.config import ROOT_DIR
+from code_search.local_search import load_structures, load_embeddings
 
-def hybrid_search(query: str, limit: int = 100) -> List[Dict[str, Any]]:
+logger = logging.getLogger(__name__)
+# Set logging level to DEBUG to get more detailed logs
+logger.setLevel(logging.DEBUG)
+
+def hybrid_search(query: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Perform a hybrid search combining semantic search with text-based search for
-    filename, filepath, and function name.
+    Perform hybrid search combining semantic search with text-based search
+    to find code structures matching the query.
     
     Args:
-        query: The search query string
+        query: Search query string
         limit: Maximum number of results to return
         
     Returns:
-        A list of search results with similarity scores and payloads
+        List of search results with payload and similarity score
     """
-    # Get semantic search results
+    logger.debug(f"Starting hybrid search for query: {query}")
+    
+    # Get embeddings and structures for semantic search
+    from code_search.local_search import search as semantic_search
     semantic_results = semantic_search(query, limit=limit)
+    
+    # Check if we got any semantic results
+    if not semantic_results:
+        logger.warning(f"No semantic search results found for: {query}")
+        return []
+    
+    logger.debug(f"Found {len(semantic_results)} semantic search results")
     
     # Get all structures for text-based search
     structures = load_structures()
+    if not structures:
+        logger.warning("No code structures found. Please run indexing first.")
+        return []
     
+    logger.debug(f"Loaded structures: {type(structures)} with {len(structures)} items")
+
     # Create a dictionary to store results with their scores
     results_dict = {}
-    
+
     # Add semantic search results to the dictionary
     for item in semantic_results:
-        structure_id = str(item["payload"].get("file_path", "") + item["payload"].get("name", ""))
-        # Slightly reduce semantic search scores to prioritize exact keyword matches
-        results_dict[structure_id] = {
-            "similarity": float(item["similarity"]) * 0.9,  # Reduce semantic scores to prioritize keyword matches
-            "payload": item["payload"],
-            "match_type": "semantic"
-        }
-    
-    # Perform text-based search
-    if len(structures) > 0:
-        # Normalize query for comparison
-        normalized_query = query.lower()
-        query_terms = normalized_query.split()
+        file_path = item.get("file_path", "")
+        name = item.get("name", "")
         
-        for idx, structure in enumerate(structures):
-            structure_id = str(structure.get("file_path", "") + structure.get("name", ""))
-            
-            # Get relevant fields for matching
+        structure_id = f"{file_path}:{name}"
+        similarity = float(item.get("similarity", 0))
+        # Slightly reduce semantic search scores to prioritize exact keyword matches
+        adjusted_similarity = similarity * 0.95
+        
+        results_dict[structure_id] = {
+            "similarity": adjusted_similarity,
+            "payload": item,
+            "match_type": "semantic",
+            "matched_field": "content"
+        }
+        
+        logger.debug(f"Added semantic result: {structure_id} with score {similarity} -> {adjusted_similarity}")
+    
+    # Perform text-based search on structures
+    lower_query = query.lower()
+    logger.debug(f"Performing text-based search with query: {lower_query}")
+    
+    # Check if structures is a dict (new format) or a list (old format)
+    if isinstance(structures, dict):
+        # Process dict format (file_path -> file_info)
+        text_matches = 0
+        for file_path, file_info in structures.items():
+            # Search in file path
+            if lower_query in file_path.lower():
+                logger.debug(f"Found file path match: {file_path}")
+                for func in file_info.get("functions", []):
+                    structure_id = f"{file_path}:{func['name']}"
+                    if structure_id not in results_dict:
+                        # Create a new result entry
+                        results_dict[structure_id] = {
+                            "similarity": 0.98,  # High score for exact filename match
+                            "payload": {
+                                "file_path": file_path,
+                                "file_name": os.path.basename(file_path),
+                                "name": func.get("name", ""),
+                                "structure_type": func.get("type", "function"),
+                                "module": func.get("module", ""),
+                                "docstring": func.get("docstring", ""),
+                                "snippet": func.get("code", ""),
+                                "line": func.get("line", 0),
+                                "line_from": func.get("start_line", 0),
+                                "line_to": func.get("end_line", 0),
+                            },
+                            "match_type": "text",
+                            "matched_field": "file_path"
+                        }
+                        text_matches += 1
+                        logger.debug(f"Added new text match for file path: {structure_id}")
+                    else:
+                        # Update existing entry if this is a better match
+                        current = results_dict[structure_id]
+                        if 0.98 > current["similarity"]:
+                            current["similarity"] = 0.98
+                            # If we already had a semantic match, mark as hybrid
+                            if current["match_type"] == "semantic":
+                                current["match_type"] = "hybrid"
+                                logger.debug(f"Updated match to hybrid: {structure_id}")
+                            else:
+                                current["match_type"] = "text"
+                            current["matched_field"] = "file_path"
+                
+            # Search in function names and content
+            for func in file_info.get("functions", []):
+                function_name = func.get("name", "").lower()
+                code = func.get("code", "").lower()
+                docstring = func.get("docstring", "").lower()
+                structure_id = f"{file_path}:{func['name']}"
+                
+                # Skip if no match in any field
+                if (lower_query not in function_name and 
+                    (not docstring or lower_query not in docstring) and 
+                    lower_query not in code):
+                    continue
+                
+                # Search in function name (high priority)
+                if lower_query in function_name:
+                    similarity = 0.99  # Higher score for function name match
+                    match_field = "function_name"
+                    logger.debug(f"Found function name match: {function_name}")
+                # Search in docstring (medium priority)
+                elif docstring and lower_query in docstring:
+                    similarity = 0.96  # Medium score for docstring match
+                    match_field = "docstring"
+                    logger.debug(f"Found docstring match in: {function_name}")
+                # Search in code (lower priority)
+                elif lower_query in code:
+                    similarity = 0.93  # Lower score for code content match
+                    match_field = "code"
+                    logger.debug(f"Found code match in: {function_name}")
+                else:
+                    continue  # Shouldn't happen due to earlier check
+                
+                if structure_id not in results_dict:
+                    # Create a new result entry
+                    results_dict[structure_id] = {
+                        "similarity": similarity,
+                        "payload": {
+                            "file_path": file_path,
+                            "file_name": os.path.basename(file_path),
+                            "name": func.get("name", ""),
+                            "structure_type": func.get("type", "function"),
+                            "module": func.get("module", ""),
+                            "docstring": func.get("docstring", ""),
+                            "snippet": func.get("code", ""),
+                            "line": func.get("line", 0),
+                            "line_from": func.get("start_line", 0),
+                            "line_to": func.get("end_line", 0),
+                        },
+                        "match_type": "text",
+                        "matched_field": match_field
+                    }
+                    text_matches += 1
+                    logger.debug(f"Added new text match: {structure_id} for {match_field}")
+                else:
+                    # Update existing entry if this is a better match
+                    current = results_dict[structure_id]
+                    if similarity > current["similarity"]:
+                        old_similarity = current["similarity"]
+                        current["similarity"] = similarity
+                        
+                        # If this was already a semantic match, change to hybrid
+                        if current["match_type"] == "semantic":
+                            current["match_type"] = "hybrid"
+                            logger.debug(f"Updated semantic to hybrid: {structure_id} score: {old_similarity} -> {similarity}")
+                        else:
+                            logger.debug(f"Updated text match score: {structure_id} score: {old_similarity} -> {similarity}")
+                        
+                        current["matched_field"] = match_field
+        
+        logger.debug(f"Found {text_matches} text-based matches in dictionary format structures")
+    else:
+        # Process list format (legacy)
+        for structure in structures:
+            # Check if the query appears in any of the relevant fields
             file_path = structure.get("file_path", "").lower()
             file_name = structure.get("file_name", "").lower()
-            function_name = structure.get("name", "").lower()
+            name = structure.get("name", "").lower()
+            snippet = structure.get("snippet", "").lower()
+            docstring = structure.get("docstring", "").lower()
             
-            # Calculate match score based on exact and partial matches in fields
-            score = 0.0
-            matched_field = ""
+            structure_id = f"{structure.get('file_path', '')}:{structure.get('name', '')}"
             
-            # Check for exact matches (highest priority)
-            if normalized_query == file_name:
-                score = 0.99  # Highest score for exact filename match
-                matched_field = "file_name"
-            elif file_name and normalized_query in file_name:
-                # Partial but strong match in filename
-                score = 0.97
-                matched_field = "file_name"
-            elif normalized_query == function_name:
-                score = 0.95  # High score for exact function name match
-                matched_field = "function_name"
-            elif file_path.endswith("/" + normalized_query):
-                score = 0.93  # High score for path ending with exact query
-                matched_field = "file_path"
+            # Skip if no match in any field
+            if (lower_query not in name and 
+                lower_query not in file_path and 
+                lower_query not in file_name and
+                (not docstring or lower_query not in docstring) and 
+                lower_query not in snippet):
+                continue
                 
-            # Check for partial matches if no exact match found
-            if score == 0.0:
-                # Calculate individual field scores
-                filename_score = _calculate_match_score(file_name, normalized_query, query_terms)
-                function_score = _calculate_match_score(function_name, normalized_query, query_terms)
-                path_score = _calculate_match_score(file_path, normalized_query, query_terms)
-                
-                # Weight the scores, heavily prioritizing filename matches
-                if filename_score > 0:
-                    score = filename_score * 0.95  # Filename is highest priority
-                    matched_field = "file_name"
-                elif function_score > 0:
-                    score = function_score * 0.85  # Function name is high priority
-                    matched_field = "function_name"
-                elif path_score > 0:
-                    score = path_score * 0.8   # Path is medium priority
-                    matched_field = "file_path"
+            # Search in different fields with different priorities
+            if lower_query in name:
+                similarity = 0.99  # Highest score for function name match
+                match_field = "function_name"
+                logger.debug(f"Found function name match: {name}")
+            elif lower_query in file_path or lower_query in file_name:
+                similarity = 0.98  # High score for file path/name match
+                match_field = "file_path"
+                logger.debug(f"Found file path/name match: {file_path or file_name}")
+            elif docstring and lower_query in docstring:
+                similarity = 0.96  # Medium score for docstring match
+                match_field = "docstring"
+                logger.debug(f"Found docstring match in: {name}")
+            elif lower_query in snippet:
+                similarity = 0.93  # Lower score for code content match
+                match_field = "snippet"
+                logger.debug(f"Found code match in: {name}")
+            else:
+                continue  # Shouldn't happen due to earlier check
             
-            # Only include matches with a minimum score
-            if score > 0.3:
-                # If this entry already exists from semantic search but our keyword match is better, update it
-                if structure_id in results_dict and results_dict[structure_id]["similarity"] < score:
-                    results_dict[structure_id] = {
-                        "similarity": float(score),
-                        "payload": structure,
-                        "match_type": "text",
-                        "matched_field": matched_field
-                    }
-                # If this entry doesn't exist in results yet, add it
-                elif structure_id not in results_dict:
-                    results_dict[structure_id] = {
-                        "similarity": float(score),
-                        "payload": structure,
-                        "match_type": "text",
-                        "matched_field": matched_field
-                    }
+            if structure_id not in results_dict:
+                # Create a new result entry
+                results_dict[structure_id] = {
+                    "similarity": similarity,
+                    "payload": structure,
+                    "match_type": "text",
+                    "matched_field": match_field
+                }
+                logger.debug(f"Added new text match: {structure_id} for {match_field}")
+            else:
+                # Update existing entry if this is a better match
+                current = results_dict[structure_id]
+                if similarity > current["similarity"]:
+                    old_similarity = current["similarity"]
+                    current["similarity"] = similarity
+                    
+                    # If this was already a semantic match, change to hybrid
+                    if current["match_type"] == "semantic":
+                        current["match_type"] = "hybrid"
+                        logger.debug(f"Updated semantic to hybrid: {structure_id} score: {old_similarity} -> {similarity}")
+                    else:
+                        logger.debug(f"Updated text match score: {structure_id} score: {old_similarity} -> {similarity}")
+                    
+                    current["matched_field"] = match_field
     
-    # Convert dictionary to list and sort by similarity score
+    # Convert results dictionary to a sorted list
     results = list(results_dict.values())
+    results.sort(key=lambda x: x["similarity"], reverse=True)
     
-    # Custom sort: first by match_type (text before semantic), then by matched_field, then by similarity
-    def custom_sort_key(item):
-        # First tier: text matches before semantic matches
-        match_type_value = 0 if item.get("match_type") == "text" else 1
-        
-        # Second tier: prioritize by matched field type
-        matched_field = item.get("matched_field", "")
-        field_priority = {
-            "file_name": 0,      # Highest priority
-            "function_name": 1,  # Second priority
-            "file_path": 2,      # Third priority
-            "": 3                # Lowest priority (for semantic matches)
-        }
-        field_value = field_priority.get(matched_field, 3)
-        
-        # Third tier: sort by similarity score
-        similarity = -item.get("similarity", 0)  # Negative for descending order
-        
-        return (match_type_value, field_value, similarity)
+    # Log the final results summary
+    semantic_count = sum(1 for r in results if r["match_type"] == "semantic")
+    text_count = sum(1 for r in results if r["match_type"] == "text")
+    hybrid_count = sum(1 for r in results if r["match_type"] == "hybrid")
+    logger.debug(f"Final results: {len(results)} total ({semantic_count} semantic, {text_count} text, {hybrid_count} hybrid)")
     
-    # Sort results using our custom sort key
-    results.sort(key=custom_sort_key)
+    # Limit the number of results
+    limited_results = results[:limit]
+    logger.debug(f"Returning {len(limited_results)} results after limit")
     
-    # Return top matches
-    return results[:limit]
-
-def _calculate_match_score(text: str, query: str, query_terms: List[str]) -> float:
-    """
-    Calculate a match score based on how well the text matches the query.
-    
-    Args:
-        text: The text to check
-        query: The original query string
-        query_terms: The query broken down into terms
-        
-    Returns:
-        A score between 0 and 1
-    """
-    if not text:
-        return 0.0
-    
-    # Check for exact match
-    if query in text:
-        # Score higher for exact match at beginning or as a whole word
-        if text.startswith(query):
-            return 0.9
-        
-        # Check if the query is a whole word within the text
-        query_pattern = r"\b{}\b".format(re.escape(query))
-        if re.search(query_pattern, text):
-            return 0.8
-        
-        # It's in the string but not a whole word
-        return 0.7
-    
-    # Calculate score based on how many terms match and their positions
-    matches = 0
-    total_terms = len(query_terms)
-    for term in query_terms:
-        if term in text:
-            matches += 1
-            # Give higher score if term appears at the beginning
-            if text.startswith(term):
-                matches += 0.5
-    
-    # Only return a score if a significant portion of terms match
-    match_ratio = matches / max(total_terms, 1)
-    if match_ratio >= 0.5:  # At least half the terms must match
-        return 0.5 * match_ratio
-    return 0.0 
+    return limited_results 

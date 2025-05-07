@@ -102,8 +102,16 @@ export function CodeContainer(props: CodeContainerProps) {
         return "Function";
       case "file_path":
         return "Path";
+      case "content":
+        return "Content";
+      case "code":
+        return "Code";
+      case "docstring":
+        return "Docstring";
+      case "snippet":
+        return "Snippet";
       default:
-        return "";
+        return field;
     }
   };
 
@@ -140,13 +148,15 @@ export function CodeContainer(props: CodeContainerProps) {
         <Group gap="xs">
           {match_type && (
             <Badge 
-              color={match_type === "text" ? "blue" : "green"} 
+              color={match_type === "text" ? "blue" : 
+                     match_type === "hybrid" ? "grape" : "green"} 
               variant="light"
             >
-              {match_type === "text" ? "Text Match" : "Semantic Match"}
+              {match_type === "text" ? "Text Match" : 
+               match_type === "hybrid" ? "Hybrid Match" : "Semantic Match"}
             </Badge>
           )}
-          {match_type === "text" && matched_field && (
+          {match_type && matched_field && (
             <Badge 
               color="cyan" 
               variant="outline"

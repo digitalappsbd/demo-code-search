@@ -10,8 +10,9 @@ import {
   Group,
   Tooltip,
   Notification,
+  Tabs,
 } from "@mantine/core";
-import { IconSearch, IconCopy, IconFileCode } from "@tabler/icons-react";
+import { IconSearch, IconCopy, IconFileCode, IconBrain } from "@tabler/icons-react";
 import useMountedState from "@/hooks/useMountedState";
 import { useGetSearchResult } from "@/hooks/useGetSearchResult";
 import { getHotkeyHandler, useHotkeys } from "@mantine/hooks";
@@ -23,6 +24,7 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { copyToClipboard } from "@/utils/clipboard";
 import { mergeCodes } from "@/api/search";
+import EmbeddingGeneration from "../EmbeddingGeneration";
 
 export default function Main() {
   const [query, setQuery] = useMountedState("");
@@ -240,7 +242,25 @@ export default function Main() {
       
       {!data && !loading && !error && (
         <>
-          <DemoSearch handleDemoSearch={handleDemoSearch} />
+          <Tabs defaultValue="search" mt="xl">
+            <Tabs.List>
+              <Tabs.Tab value="search" leftSection={<IconSearch size="0.8rem" />}>
+                Search Examples
+              </Tabs.Tab>
+              <Tabs.Tab value="embeddings" leftSection={<IconBrain size="0.8rem" />}>
+                Embedding Generation
+              </Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="search" pt="xl">
+              <DemoSearch handleDemoSearch={handleDemoSearch} />
+            </Tabs.Panel>
+            
+            <Tabs.Panel value="embeddings" pt="xl">
+              <EmbeddingGeneration />
+            </Tabs.Panel>
+          </Tabs>
+          
           <Box
             style={{
               display: "flex",
@@ -250,35 +270,50 @@ export default function Main() {
             }}
           >
             <Image
-              src="/landing.gif"
-              alt="Qdrant Landing"
-              maw={400}
-              h={400}
-              fit="contain"
+              src="/quantum.svg"
+              height={300}
+              width={300}
+              alt="Code Search"
+              style={{ opacity: 0.8 }}
             />
-            <Title order={3} className={classes.heading}>
-              Qdrant{" "}
-              <span className={classes.headingHighlight}>Code Search</span>{" "}
-              Unleashing Semantic Power
+            <Title
+              order={1}
+              size="h2"
+              style={{ fontWeight: 900, marginTop: 20 }}
+            >
+              Code Search
             </Title>
-            <Text className={classes.subHeading}>
-              Qdrant Code Explorer: Empowering Semantic Searching in Qdrant
-              Repository with Advanced Code Analysis
+            <Text size="lg" c="#555" ta="center" mt={10} mb={30}>
+              Search through your codebase semantically
             </Text>
           </Box>
         </>
       )}
+
       {loading && (
-        <Box className={classes.loader}>
-          <Loader type="bars" />
+        <Box
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: "3rem",
+          }}
+        >
+          <Title order={4} mb={"sm"}>
+            Searching...
+          </Title>
+          <Loader size={"lg"} color="#3d5afe" />
+          <Text size="sm" c="dimmed" mt="xs">
+            This may take a moment
+          </Text>
         </Box>
       )}
-      {error && (
-        <Box>
-          <Image src="/error.gif" alt="Error" h={400} fit="contain" />
 
-          <Text className={classes.subHeading}>
-            Something went wrong, {error}
+      {error && (
+        <Box mt="lg">
+          <Text c="red" fw={600}>
+            Error: {error}
           </Text>
         </Box>
       )}

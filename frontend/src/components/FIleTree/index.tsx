@@ -20,6 +20,8 @@ interface CodeElement {
   line_to: number;
   name: string;
   signature: string;
+  match_type?: string;
+  matched_field?: string;
 }
 
 interface ParsedLink {
@@ -28,6 +30,8 @@ interface ParsedLink {
   id?: string;
   initiallyOpened?: boolean;
   links?: ParsedLink[];
+  match_type?: string;
+  matched_field?: string;
 }
 
 interface ParsedData {
@@ -35,6 +39,8 @@ interface ParsedData {
   icon: any;
   initiallyOpened?: boolean;
   links?: ParsedLink[];
+  match_type?: string;
+  matched_field?: string;
 }
 
 function parseCodeElements(data: { result: CodeElement[] }): ParsedData[] {
@@ -67,6 +73,8 @@ function parseCodeElements(data: { result: CodeElement[] }): ParsedData[] {
           label: element.context.file_name,
           id: element.context.file_path,
           icon: IconFile,
+          match_type: element.match_type || "semantic",
+          matched_field: element.matched_field || "content",
         };
         currentLevel.push(file);
       }
@@ -86,6 +94,8 @@ export function FileTree({ data }: { data: searchResponse | null }) {
       icon={link.icon}
       initiallyOpened={link.initiallyOpened}
       links={link.links}
+      match_type={link.match_type}
+      matched_field={link.matched_field}
     />
   ));
   return (

@@ -25,36 +25,39 @@ class QodoEmbeddingsProvider:
             print("You may need to authenticate to access the Qodo Embed model.")
             print("Visit https://huggingface.co/Qodo/Qodo-Embed-1-1.5B to accept terms.")
         
-        # Determine device - allow GPU override
+        # Determine device
         if device is None:
-            # Check if CUDA is available
-            if torch.cuda.is_available():
-                print("CUDA is available. To use GPU, pass device='cuda' to the constructor")
-                
-            # Check if MPS (Apple Silicon) is available
-            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                print("MPS (Apple Silicon acceleration) is available. To use MPS, pass device='mps' to the constructor")
-                
-            # Default to CPU for reliability
-            self.device = torch.device("cpu")
-            print("Using CPU device for embedding generation")
+            device = os.environ.get("EMBEDDING_DEVICE", "cpu")
+        
+        # Map device string to torch device
+        if device == "cuda" and torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        elif device == "mps" and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            self.device = torch.device("mps")
         else:
-            # Use specified device
-            self.device = torch.device(device)
-            print(f"Using {device} device for embedding generation")
+            self.device = torch.device("cpu")
+        
+        self.model = None
+        self.model_name = "Qodo/Qodo-Embed-1-1.5B"
+        
+        try:
+            # Load model with explicit device
+            print(f"Loading model on {self.device}...")
+            self.model = SentenceTransformer("Qodo/Qodo-Embed-1-1.5B", device=self.device.type)
+            
+            # Warm up the model with a simple embedding
+            print("Warming up the model...")
+            _ = self.model.encode("Test code", batch_size=1, show_progress_bar=False)
+            print(f"Model {self.model_name} loaded successfully.")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            print("Will use fallback embedding method instead.")
+            self.model = None
+            self.model_name = "fallback_simple_embed"
         
         # Set environment variables for memory management
         if self.device.type == "mps":
             os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
-        
-        # Load model with explicit device
-        print(f"Loading model on {self.device}...")
-        self.model = SentenceTransformer("Qodo/Qodo-Embed-1-1.5B", device=self.device.type)
-        self.model_name = "Qodo/Qodo-Embed-1-1.5B"
-        
-        # Warm up the model with a simple embedding
-        print("Warming up the model...")
-        _ = self.model.encode("Test code", batch_size=1, show_progress_bar=False)
 
     def embed_code(
         self, code: Optional[str] = None, docstring: Optional[str] = None, batch_size: int = 1
@@ -63,6 +66,11 @@ class QodoEmbeddingsProvider:
         Generate embedding for code and/or docstring.
         """
         text = f"{docstring or ''} {code or ''}"
+        
+        if self.model is None:
+            # Fallback to simple embedding if model failed to load
+            from code_search.local_search import simple_encode
+            return simple_encode(text)
         
         # Use configurable batch size for embedding
         vector = self.model.encode(text, batch_size=batch_size, show_progress_bar=False)
@@ -94,6 +102,11 @@ class QodoEmbeddingsProvider:
             for item in texts
         ]
         
+        if self.model is None:
+            # Fallback to simple embedding if model failed to load
+            from code_search.local_search import simple_encode
+            return [simple_encode(text) for text in formatted_texts]
+        
         # Generate embeddings in a single batch
         vectors = self.model.encode(
             formatted_texts, 
@@ -112,6 +125,11 @@ class QodoEmbeddingsProvider:
         """
         Generate embedding for a search query.
         """
+        if self.model is None:
+            # Fallback to simple embedding if model failed to load
+            from code_search.local_search import simple_encode
+            return simple_encode(query)
+            
         # Use configurable batch size for embedding
         vector = self.model.encode(query, batch_size=batch_size, show_progress_bar=False)
         

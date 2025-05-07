@@ -1,4 +1,5 @@
 import os
+import logging
 
 from dotenv import load_dotenv
 
@@ -17,3 +18,10 @@ QDRANT_FILE_COLLECTION_NAME="code-files"
 
 ENCODER_NAME = "all-MiniLM-L6-v2"
 ENCODER_SIZE = 384
+
+# Configure logging
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)

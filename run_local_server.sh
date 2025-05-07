@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 source venv/bin/activate
 
 # Make sure we have embeddings
-if [ ! -f "data/embeddings.json" ] || [ ! -f "data/structures.json" ]; then
+if [ ! -f "data/qodo_embeddings.json" ] || [ ! -f "data/structures.json" ]; then
     echo "Generating embeddings and structures..."
     python3 tools/index_quran_local.py
 fi

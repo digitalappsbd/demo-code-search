@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Background circle -->
+  <circle cx="250" cy="250" r="200" fill="none" stroke="#eaeaea" stroke-width="2"/>
+  
+  <!-- Orbital rings -->
+  <ellipse cx="250" cy="250" rx="180" ry="100" fill="none" stroke="#d0d0ff" stroke-width="2" transform="rotate(0 250 250)"/>
+  <ellipse cx="250" cy="250" rx="180" ry="100" fill="none" stroke="#c0c0ff" stroke-width="2" transform="rotate(60 250 250)"/>
+  <ellipse cx="250" cy="250" rx="180" ry="100" fill="none" stroke="#b0b0ff" stroke-width="2" transform="rotate(120 250 250)"/>
+  
+  <!-- Outer nodes -->
+  <circle cx="250" cy="50" r="12" fill="#3d5afe"/>
+  <circle cx="250" cy="450" r="12" fill="#3d5afe"/>
+  <circle cx="430" cy="250" r="12" fill="#3d5afe"/>
+  <circle cx="70" cy="250" r="12" fill="#3d5afe"/>
+  <circle cx="370" cy="150" r="12" fill="#3d5afe"/>
+  <circle cx="130" cy="350" r="12" fill="#3d5afe"/>
+  <circle cx="370" cy="350" r="12" fill="#3d5afe"/>
+  <circle cx="130" cy="150" r="12" fill="#3d5afe"/>
+  
+  <!-- Connection lines -->
+  <line x1="250" y1="50" x2="250" y2="450" stroke="#eaeaea" stroke-width="1"/>
+  <line x1="70" y1="250" x2="430" y2="250" stroke="#eaeaea" stroke-width="1"/>
+  <line x1="130" y1="150" x2="370" y2="350" stroke="#eaeaea" stroke-width="1"/>
+  <line x1="130" y1="350" x2="370" y2="150" stroke="#eaeaea" stroke-width="1"/>
+  
+  <!-- Inner connections -->
+  <line x1="250" y1="150" x2="370" y2="150" stroke="#eaeaea" stroke-width="1"/>
+  <line x1="250" y1="150" x2="130" y2="150" stroke="#eaeaea" stroke-width="1"/>
+  <line x1="250" y1="350" x2="370" y2="350" stroke="#eaeaea" stroke-width="1"/>
+  <line x1="250" y1="350" x2="130" y2="350" stroke="#eaeaea" stroke-width="1"/>
+  
+  <!-- Center node -->
+  <circle cx="250" cy="250" r="20" fill="#3d5afe"/>
+  <circle cx="250" cy="250" r="15" fill="#ffffff"/>
+  
+  <!-- Mid-level nodes -->
+  <circle cx="250" cy="150" r="10" fill="#8093fc"/>
+  <circle cx="250" cy="350" r="10" fill="#8093fc"/>
+  
+  <!-- Pulsing animation -->
+  <circle cx="250" cy="250" r="40" fill="none" stroke="#3d5afe" stroke-width="2" opacity="0.5">
+    <animate attributeName="r" values="40;60;40" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.5;0.2;0.5" dur="3s" repeatCount="indefinite"/>
+  </circle>
+</svg> 
