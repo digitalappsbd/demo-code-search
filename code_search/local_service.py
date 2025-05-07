@@ -267,11 +267,6 @@ def run_structure_generation(target_dir: str, pattern: str, max_lines: int, forc
         structure_process["start_time"] = time.time()
         structure_process["message"] = "Starting code structure generation..."
         
-        # Use a default target dir if not provided
-        if not target_dir:
-            # Use the parent directory or a specific code directory
-            target_dir = os.path.dirname(ROOT_DIR)
-        
         # Clean target_dir - strip whitespace and ensure no trailing slash
         target_dir = target_dir.strip().rstrip('/')
         
@@ -402,18 +397,31 @@ async def generate_structures(request: StructureRequest, background_tasks: Backg
     # Process the target directory to ensure it exists and is a directory
     target_dir = request.target_dir.strip() if request.target_dir else ""
     
-    if target_dir:
-        # Clean the target directory path
-        target_dir = target_dir.strip().rstrip('/')
-        
-        if os.path.exists(target_dir):
-            # If it's a file, use its directory
-            if os.path.isfile(target_dir):
-                target_dir = os.path.dirname(target_dir)
-                logger.info(f"Target was a file, using its directory instead: '{target_dir}'")
+    if not target_dir:
+        return {
+            "status": "error",
+            "message": "No target directory provided. Please specify a valid directory path."
+        }
+    
+    # Clean the target directory path
+    target_dir = target_dir.strip().rstrip('/')
+    
+    if not os.path.exists(target_dir):
+        return {
+            "status": "error",
+            "message": f"Target directory '{target_dir}' does not exist"
+        }
+    
+    if not os.path.isdir(target_dir):
+        # If it's a file, use its directory
+        if os.path.isfile(target_dir):
+            target_dir = os.path.dirname(target_dir)
+            logger.info(f"Target was a file, using its directory instead: '{target_dir}'")
         else:
-            logger.warning(f"Target directory '{target_dir}' does not exist, will use default")
-            target_dir = ""
+            return {
+                "status": "error",
+                "message": f"'{target_dir}' is not a valid directory"
+            }
     
     # Ensure pattern is clean
     pattern = request.pattern.strip() if request.pattern else "**/*.py"

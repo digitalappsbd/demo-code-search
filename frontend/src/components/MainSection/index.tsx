@@ -19,7 +19,6 @@ import { FileTree } from "../FIleTree";
 import { CodeContainer } from "../CodeContainer";
 import classes from "./Main.module.css";
 import DemoSearch from "../DemoSearch";
-import { CodebasePath } from "../DemoSearch";
 import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { copyToClipboard } from "@/utils/clipboard";
@@ -27,12 +26,10 @@ import { mergeCodes } from "@/api/search";
 import EmbeddingGeneration from "../EmbeddingGeneration";
 import StructureGeneration from "../StructureGeneration";
 import CodebaseSettings from "../CodebaseSettings";
-import { useGetFile } from "@/hooks/useGetFile";
 
 export default function Main() {
   const [query, setQuery] = useMountedState("");
   const { data, getSearch, loading, error, resetData } = useGetSearchResult();
-  const { codebasePath, updateCodebasePath } = useGetFile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [clipboardNotification, setClipboardNotification] = useMountedState<{
     visible: boolean;
@@ -196,10 +193,6 @@ export default function Main() {
         </Notification>
       )}
 
-      <CodebasePath 
-        codebasePath={codebasePath}
-        onUpdateCodebasePath={updateCodebasePath}
-      />
 
       {data && (
         <>

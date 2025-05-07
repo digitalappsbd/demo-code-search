@@ -14,7 +14,7 @@ from qdrant_client.http import models
 
 # Parse arguments
 parser = argparse.ArgumentParser(description='Index Quran codebase structures')
-parser.add_argument('--target-dir', type=str, default="/Users/devsufi/Documents/GitHub/Quran-Majeed/lib",
+parser.add_argument('--target-dir', type=str, default="",
                     help='Target directory to process')
 parser.add_argument('--pattern', type=str, default="**/*.dart",
                     help='File pattern to process')

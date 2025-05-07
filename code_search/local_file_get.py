@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 
 class FileGet:
     def __init__(self, codebase_path=None):
-        self.codebase_path = codebase_path or "/Users/devsufi/Documents/GitHub/Quran-Majeed/lib"
+        self.codebase_path = codebase_path or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
     def get(self, path, limit=5) -> List[Dict[str, Any]]:
         """Get the content of a file by path."""
