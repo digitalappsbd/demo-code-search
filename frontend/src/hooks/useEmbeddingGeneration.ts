@@ -36,7 +36,7 @@ export const useEmbeddingGeneration = () => {
     try {
       const response = await getEmbeddingStatus();
       if (response.data) {
-        setStatus(response.data);
+        setStatus(prevStatus => ({ ...prevStatus, ...response.data }));
         
         // Stop polling when completed or failed
         if (response.data.status === 'completed' || response.data.status === 'failed') {
@@ -45,10 +45,11 @@ export const useEmbeddingGeneration = () => {
       }
     } catch (err) {
       console.error('Error fetching embedding status:', err);
-      setError('Failed to fetch embedding status');
-      setIsPolling(false);
+      // Keep polling even if one request fails, but log an error
+      // setError('Failed to fetch embedding status'); 
+      // setIsPolling(false);
     }
-  }, []);
+  }, []); // No dependencies needed for fetchStatus itself, as setStatus/setIsPolling are stable
   
   // Start embedding generation
   const startGeneration = useCallback(async (options: EmbeddingOptions) => {
@@ -90,9 +91,9 @@ export const useEmbeddingGeneration = () => {
     let intervalId: NodeJS.Timeout | null = null;
     
     if (isPolling) {
-      intervalId = setInterval(() => {
-        fetchStatus();
-      }, 500); // Poll every 500ms for better responsiveness
+      // Fetch immediately when polling starts
+      fetchStatus(); 
+      intervalId = setInterval(fetchStatus, 500); // Poll every 500ms
     }
     
     // Cleanup
@@ -101,7 +102,7 @@ export const useEmbeddingGeneration = () => {
         clearInterval(intervalId);
       }
     };
-  }, [isPolling, fetchStatus]);
+  }, [isPolling, fetchStatus]); // fetchStatus is stable due to useCallback with empty deps
   
   // Check status on initial mount
   useEffect(() => {
