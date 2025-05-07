@@ -104,8 +104,9 @@ class EmbeddingRequest(BaseModel):
     model: str = "qodo"
     force: bool = False
     use_gpu: bool = False
+    batch_size: int = 8
 
-def run_embedding_generation(model: str, force: bool, use_gpu: bool):
+def run_embedding_generation(model: str, force: bool, use_gpu: bool, batch_size: int = 8):
     global embedding_process
     
     try:
@@ -117,7 +118,8 @@ def run_embedding_generation(model: str, force: bool, use_gpu: bool):
         cmd = [
             "python3", 
             os.path.join(ROOT_DIR, "tools", "generate_embeddings_with_model.py"),
-            f"--model={model}"
+            f"--model={model}",
+            f"--batch-size={batch_size}"
         ]
         
         if force:
@@ -237,7 +239,8 @@ async def generate_embeddings(request: EmbeddingRequest, background_tasks: Backg
         run_embedding_generation, 
         model=request.model, 
         force=request.force, 
-        use_gpu=request.use_gpu
+        use_gpu=request.use_gpu,
+        batch_size=request.batch_size
     )
     
     return {

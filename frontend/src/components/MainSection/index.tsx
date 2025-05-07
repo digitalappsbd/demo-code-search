@@ -11,7 +11,7 @@ import {
   Notification,
   Tabs,
 } from "@mantine/core";
-import { IconSearch, IconCopy, IconFileCode, IconBrain, IconCode } from "@tabler/icons-react";
+import { IconSearch, IconCopy, IconFileCode, IconBrain, IconCode, IconSettings } from "@tabler/icons-react";
 import useMountedState from "@/hooks/useMountedState";
 import { useGetSearchResult } from "@/hooks/useGetSearchResult";
 import { getHotkeyHandler, useHotkeys } from "@mantine/hooks";
@@ -26,6 +26,7 @@ import { copyToClipboard } from "@/utils/clipboard";
 import { mergeCodes } from "@/api/search";
 import EmbeddingGeneration from "../EmbeddingGeneration";
 import StructureGeneration from "../StructureGeneration";
+import CodebaseSettings from "../CodebaseSettings";
 import { useGetFile } from "@/hooks/useGetFile";
 
 export default function Main() {
@@ -261,6 +262,9 @@ export default function Main() {
               <Tabs.Tab value="embeddings" leftSection={<IconBrain size="0.8rem" />}>
                 Embedding Generation
               </Tabs.Tab>
+              <Tabs.Tab value="settings" leftSection={<IconSettings size="0.8rem" />}>
+                Codebase Settings
+              </Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="search" pt="xl">
@@ -273,6 +277,10 @@ export default function Main() {
             
             <Tabs.Panel value="embeddings" pt="xl">
               <EmbeddingGeneration />
+            </Tabs.Panel>
+            
+            <Tabs.Panel value="settings" pt="xl">
+              <CodebaseSettings />
             </Tabs.Panel>
           </Tabs>
           

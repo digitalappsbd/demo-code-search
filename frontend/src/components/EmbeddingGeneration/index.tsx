@@ -11,7 +11,8 @@ import {
   Select, 
   Alert, 
   Code,
-  Divider
+  Divider,
+  NumberInput
 } from '@mantine/core';
 import { IconBrain, IconRefresh, IconAlertCircle, IconInfoCircle } from '@tabler/icons-react';
 import useEmbeddingGeneration from '@/hooks/useEmbeddingGeneration';
@@ -21,6 +22,7 @@ export const EmbeddingGeneration = () => {
   const [model, setModel] = useState('qodo');
   const [force, setForce] = useState(false);
   const [useGpu, setUseGpu] = useState(false);
+  const [batchSize, setBatchSize] = useState(8);
   const [structuresExist, setStructuresExist] = useState(true);
   
   const { 
@@ -54,7 +56,8 @@ export const EmbeddingGeneration = () => {
     startGeneration({
       model,
       force,
-      use_gpu: useGpu
+      use_gpu: useGpu,
+      batch_size: batchSize
     });
   };
   
@@ -179,6 +182,17 @@ export const EmbeddingGeneration = () => {
           value={model}
           onChange={(value) => setModel(value || 'qodo')}
           disabled={isRunning || !structuresExist}
+        />
+        
+        <NumberInput
+          label="Batch Size"
+          description="Smaller values use less memory"
+          value={batchSize}
+          onChange={(value) => setBatchSize(Number(value) || 8)}
+          min={1}
+          max={32}
+          disabled={isRunning || !structuresExist}
+          w={120}
         />
         
         <Switch

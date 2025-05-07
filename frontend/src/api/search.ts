@@ -21,6 +21,7 @@ export type EmbeddingRequest = {
     model: string;
     force: boolean;
     use_gpu: boolean;
+    batch_size?: number;
 }
 
 export type StructureRequest = {

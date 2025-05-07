@@ -15,6 +15,7 @@ type EmbeddingOptions = {
   model: string;
   force: boolean;
   use_gpu: boolean;
+  batch_size?: number;
 };
 
 export const useEmbeddingGeneration = () => {
